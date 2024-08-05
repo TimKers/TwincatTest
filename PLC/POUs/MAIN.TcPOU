@@ -132,6 +132,10 @@ CS(	by_setCooling			:=	by_setCooling,
 *)	
 	
 //BMS();
+
+IF TRUE THEN
+	ACPowerStatus := TRUE;
+END_IF
 (*
 IF startConversion THEN
 	TestVar := router.SetSMSNumber(TestString);
@@ -165,7 +169,9 @@ extTestIn[4];
 //TestOut := TestIn;
 
 
-LedStripSFC();]]></ST>
+LedStripSFC();
+
+//changeadded]]></ST>
     </Implementation>
     <LineIds Name="MAIN">
       <LineId Id="256" Count="0" />
@@ -190,6 +196,9 @@ LedStripSFC();]]></ST>
       <LineId Id="115" Count="0" />
       <LineId Id="80" Count="0" />
       <LineId Id="75" Count="0" />
+      <LineId Id="704" Count="0" />
+      <LineId Id="703" Count="0" />
+      <LineId Id="705" Count="1" />
       <LineId Id="450" Count="0" />
       <LineId Id="448" Count="0" />
       <LineId Id="447" Count="0" />
@@ -216,6 +225,8 @@ LedStripSFC();]]></ST>
       <LineId Id="612" Count="0" />
       <LineId Id="616" Count="0" />
       <LineId Id="611" Count="0" />
+      <LineId Id="702" Count="0" />
+      <LineId Id="701" Count="0" />
     </LineIds>
   </POU>
 </TcPlcObject>
