@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_COInputData" Id="{b966fc4e-5f05-491f-9b79-9af3a9645c60}">
+    <Declaration><![CDATA[TYPE ST_COInputData :
+STRUCT
+	w_Value				:	WORD;
+	b_InputUnderrange 	: 	BOOL;
+	b_InputOverrange	:	BOOL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

@@ -1,0 +1,312 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="SetSIEMENSOutput" Id="{b12db321-fcc8-44ab-96de-0beadf1eda0a}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM SetSIEMENSOutput
+VAR
+	fbSocCustomerLowLimit		: fbRealToWord;
+	fbSocCustomerHighLimit		: fbRealToWord;
+	fbCalculatedSOC				: fbRealToWord;
+	fbSOH						: fbRealToWord;
+	fbMaxChargeCurrent			: fbRealToWord;
+	fbMaxDischargeCurrent		: fbRealToWord;
+	fbCurrentLimitMax			: fbRealToWord;
+	fbCurrentLimitMin			: fbRealToWord;
+	fbActiveCurrent				: fbRealToDWord;
+	fbReactiveCurrent			: fbRealToDWord;
+	fbVoltageA					: fbRealToWord;
+	fbVoltageB					: fbRealToWord;
+	fbVoltageC					: fbRealToWord;
+	fbVoltageAB					: fbRealToWord;
+	fbVoltageBC					: fbRealToWord;
+	fbVoltageCA					: fbRealToWord;
+	fbCurrentA					: fbRealToDWord;
+	fbCurrentB					: fbRealToDWord;
+	fbCurrentC					: fbRealToDWord;
+	fbCurrentN					: fbRealToDWord;
+	fbLineVoltage				: fbRealToWord;
+	fbSupplyVoltage				: fbRealToWord;
+	fbLineFreq					: fbRealToWord;
+	fbSupplyFreq				: fbRealToWord;
+	fbTotalUsedEnergy			: fbRealToDWord;
+	fbTemperatureBatteryCompartment		: fbRealToWord;
+	fbTemperatureElectricalCompartment		: fbRealToWord;
+	fbMinCellTemperature		: fbRealToWord;
+	fbMaxCellTemperature		: fbRealToWord;
+	fbAvgCellTemperature		: fbRealToWord;
+	fbSOCUPS1		: fbRealToWord;
+	fbSOCRemainingTimeUPS1		: fbRealToWord;
+	fbTransformerTemp			: fbRealToWord;
+	fbInverterTemp			: fbRealToWord;
+	fbActPowerPQMeter			: fbRealToWord;
+	fbReactPowerPQMeter			: fbRealToWord;
+	
+			
+	fbDCLinkVoltage		: fbRealToDWord;
+	fbDCLinkCurrent		: fbRealToDWord;
+	fbMinCellVoltage		: fbRealToWord;
+	fbMaxCellVoltage		: fbRealToWord;
+	fbAvgCellVoltage		: fbRealToWord;
+	
+	b_GenACSyncPerm: BOOL := TRUE;
+	b_Spare: BOOL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+fbSocCustomerLowLimit(in_r_Value:= GVL.r_SocCustomerLowLimitVISU,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[1], out_B1=> OutProfinetSIEMENS.aDataOut[0]);
+fbSocCustomerHighLimit(in_r_Value:= GVL.r_SocCustomerHighLimitVISU,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[3], out_B1=> OutProfinetSIEMENS.aDataOut[2]);
+fbCalculatedSOC(in_r_Value:= GVL.lr_CalculatedSOC,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[5], out_B1=> OutProfinetSIEMENS.aDataOut[4]);
+fbSOH(in_r_Value:= InCanBMS.lr_SOH,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[7], out_B1=> OutProfinetSIEMENS.aDataOut[6]);
+fbMaxChargeCurrent(in_r_Value:= GVL.r_MaxChargeCurrentAC,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[9], out_B1=> OutProfinetSIEMENS.aDataOut[8]);
+fbMaxDischargeCurrent(in_r_Value:= GVL.r_MaxDischargeCurrentAC,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[11], out_B1=> OutProfinetSIEMENS.aDataOut[10]);
+fbActiveCurrent(in_r_Value:= GVL.r_InvActiveCurrent,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[15], out_B1=> OutProfinetSIEMENS.aDataOut[14], out_B2=> OutProfinetSIEMENS.aDataOut[13], out_B3=> OutProfinetSIEMENS.aDataOut[12]);
+fbReactiveCurrent(in_r_Value:= GVL.r_InvReactiveCurrent,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[19], out_B1=> OutProfinetSIEMENS.aDataOut[18], out_B2=> OutProfinetSIEMENS.aDataOut[17], out_B3=> OutProfinetSIEMENS.aDataOut[16]);
+OutProfinetSIEMENS.aDataOut[20] := REAL_TO_BYTE(PowerMonitoringTCP.r_ActivePowerFactor/0.01);
+fbVoltageA(in_r_Value:= PowerMonitoringTCP.r_VoltageA_N,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[22], out_B1=> OutProfinetSIEMENS.aDataOut[21]);
+fbVoltageB(in_r_Value:= PowerMonitoringTCP.r_VoltageB_N,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[24], out_B1=> OutProfinetSIEMENS.aDataOut[23]);
+fbVoltageC(in_r_Value:= PowerMonitoringTCP.r_VoltageC_N,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[26], out_B1=> OutProfinetSIEMENS.aDataOut[25]);
+fbVoltageAB(in_r_Value:= PowerMonitoringTCP.r_VoltageAB,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[28], out_B1=> OutProfinetSIEMENS.aDataOut[27]);
+fbVoltageBC(in_r_Value:= PowerMonitoringTCP.r_VoltageBC,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[30], out_B1=> OutProfinetSIEMENS.aDataOut[29]);
+fbVoltageCA(in_r_Value:= PowerMonitoringTCP.r_VoltageCA,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[32], out_B1=> OutProfinetSIEMENS.aDataOut[31]);
+fbCurrentA(in_r_Value:= PowerMonitoringTCP.r_CurrentA,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[36], out_B1=> OutProfinetSIEMENS.aDataOut[35], out_B2=> OutProfinetSIEMENS.aDataOut[34], out_B3=> OutProfinetSIEMENS.aDataOut[33]);
+fbCurrentB(in_r_Value:= PowerMonitoringTCP.r_CurrentB,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[40], out_B1=> OutProfinetSIEMENS.aDataOut[39], out_B2=> OutProfinetSIEMENS.aDataOut[38], out_B3=> OutProfinetSIEMENS.aDataOut[37]);
+fbCurrentC(in_r_Value:= PowerMonitoringTCP.r_CurrentC,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[44], out_B1=> OutProfinetSIEMENS.aDataOut[43], out_B2=> OutProfinetSIEMENS.aDataOut[42], out_B3=> OutProfinetSIEMENS.aDataOut[41]);
+fbCurrentN(in_r_Value:= PowerMonitoringTCP.r_CurrentN,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[48], out_B1=> OutProfinetSIEMENS.aDataOut[47], out_B2=> OutProfinetSIEMENS.aDataOut[46], out_B3=> OutProfinetSIEMENS.aDataOut[45]);
+fbLineVoltage(in_r_Value:= GVL.r_InvLineVoltageD7,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[50], out_B1=> OutProfinetSIEMENS.aDataOut[49]);
+fbLineFreq(in_r_Value:= GVL.r_InvLineFrequencyD7,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[52], out_B1=> OutProfinetSIEMENS.aDataOut[51]);
+fbTotalUsedEnergy(in_r_Value:= UDINT_TO_REAL(InCanBMS.usi_TotalUsedEnergy),in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[56], out_B1=> OutProfinetSIEMENS.aDataOut[55], out_B2=> OutProfinetSIEMENS.aDataOut[54], out_B3=> OutProfinetSIEMENS.aDataOut[53]);
+fbTemperatureBatteryCompartment(in_r_Value:= AI.r_TemperatureBatteryCompartment,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[58], out_B1=> OutProfinetSIEMENS.aDataOut[57]);
+fbTemperatureElectricalCompartment(in_r_Value:= AI.r_TemperatureElectricalCompartment,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[60], out_B1=> OutProfinetSIEMENS.aDataOut[59]);
+fbMinCellTemperature(in_r_Value:= LREAL_TO_REAL(InCanBMS.lr_MinCellTemperature),in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[62], out_B1=> OutProfinetSIEMENS.aDataOut[61]);
+fbMaxCellTemperature(in_r_Value:= LREAL_TO_REAL(InCanBMS.lr_MaxCellTemperature),in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[64], out_B1=> OutProfinetSIEMENS.aDataOut[63]);
+fbAvgCellTemperature(in_r_Value:= LREAL_TO_REAL(InCanBMS.lr_AvgCellTemperature),in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[66], out_B1=> OutProfinetSIEMENS.aDataOut[65]);
+fbSOCUPS1(in_r_Value:= GVL.r_UPSBatSoC,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[68], out_B1=> OutProfinetSIEMENS.aDataOut[67]);
+fbSOCRemainingTimeUPS1(in_r_Value:= GVL.r_UPSTimeRemaining,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[70], out_B1=> OutProfinetSIEMENS.aDataOut[69]);
+OutProfinetSIEMENS.aDataOut[71] := REAL_TO_BYTE(InProfinetUPS.di_StatusPSU1/1);
+fbDCLinkVoltage(in_r_Value:= GVL.r_DCLinkVoltage,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[75], out_B1=> OutProfinetSIEMENS.aDataOut[74], out_B2=> OutProfinetSIEMENS.aDataOut[73], out_B3=> OutProfinetSIEMENS.aDataOut[72]);
+fbDCLinkCurrent(in_r_Value:= GVL.r_DCLinkCurrent,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[79], out_B1=> OutProfinetSIEMENS.aDataOut[78], out_B2=> OutProfinetSIEMENS.aDataOut[77], out_B3=> OutProfinetSIEMENS.aDataOut[76]);
+fbMinCellVoltage(in_r_Value:= UINT_TO_REAL(InCanBMS.ui_MinCellVoltage),in_r_Res:= 1, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[81], out_B1=> OutProfinetSIEMENS.aDataOut[80]);
+fbMaxCellVoltage(in_r_Value:= UINT_TO_REAL(InCanBMS.ui_MaxCellVoltage),in_r_Res:= 1, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[83], out_B1=> OutProfinetSIEMENS.aDataOut[82]);
+fbAvgCellVoltage(in_r_Value:= UINT_TO_REAL(InCanBMS.ui_AvgCellVoltage),in_r_Res:= 1, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[85], out_B1=> OutProfinetSIEMENS.aDataOut[84]);
+fbCurrentLimitMax(in_r_Value:= OutProfinetInverter.i_CurrentlimitMax,in_r_Res:= 0.1, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[89], out_B1=> OutProfinetSIEMENS.aDataOut[88]);
+fbCurrentLimitMin(in_r_Value:= OutProfinetInverter.i_CurrentlimitMax,in_r_Res:= 0.1, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[91], out_B1=> OutProfinetSIEMENS.aDataOut[90]);
+OutProfinetSIEMENS.aDataOut[129]:= GVL.by_Status_ModeSequence;
+fbSupplyFreq(in_r_Value:= GVL.r_InvSupplyFrequency,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[131], out_B1=> OutProfinetSIEMENS.aDataOut[130]);
+fbSupplyVoltage(in_r_Value:= GVL.r_InvSupplyVoltage,in_r_Res:= 0.01, in_i_Offset:= 0,out_B0=> OutProfinetSIEMENS.aDataOut[133], out_B1=> OutProfinetSIEMENS.aDataOut[132]);
+fbTransformerTemp(in_r_Value:= AI.r_TemperatureTransformer, in_r_Res:=0.1, in_i_Offset:=0, out_B0=> OutProfinetSIEMENS.aDataOut[135], out_B1=> OutProfinetSIEMENS.aDataOut[134]);
+fbInverterTemp(in_r_Value:= GVL.r_InvTemperature, in_r_Res:=0.1, in_i_Offset:=0, out_B0=> OutProfinetSIEMENS.aDataOut[137], out_B1=> OutProfinetSIEMENS.aDataOut[136]);
+fbActPowerPQMeter(in_r_Value:= PowerMonitoringTCP.r_ActivePower, in_r_Res:=0.01, in_i_Offset:=0, out_B0=> OutProfinetSIEMENS.aDataOut[139], out_B1=> OutProfinetSIEMENS.aDataOut[138]); 
+fbReactPowerPQMeter(in_r_Value:= PowerMonitoringTCP.r_ReactivePower, in_r_Res:=0.01, in_i_Offset:=0, out_B0=> OutProfinetSIEMENS.aDataOut[141], out_B1=> OutProfinetSIEMENS.aDataOut[140]); 
+//Feedback Signals
+
+
+
+// Diagnostics
+OutProfinetSIEMENS.aDataOut[86].0 := Diagnostics.b_ACRotationFault;
+OutProfinetSIEMENS.aDataOut[86].1 := b_GenACSyncPerm;
+OutProfinetSIEMENS.aDataOut[86].2 := DigitalInputs.b_AirconditioningOK;
+OutProfinetSIEMENS.aDataOut[86].3 := DigitalInputs.b_TransferSwitchIOFF;
+OutProfinetSIEMENS.aDataOut[86].4 := DigitalInputs.b_TransferSwitchIIOFF;
+OutprofinetSIEMENS.aDataOut[86].5 := GVL.b_MCCB_Active;
+OutprofinetSIEMENS.aDataOut[86].6 := DigitalInputs.b_DisconnectorIOFF;
+OutprofinetSIEMENS.aDataOut[86].7 := DigitalInputs.b_DisconnectorIIOFF;
+OutprofinetSIEMENS.aDataOut[87].1 := GVL.b_GenStartStopEnable;
+OutProfinetSIEMENS.aDataOut[100].0 := Diagnostics.b_DoorElectricalCompartmentOpen;
+OutProfinetSIEMENS.aDataOut[100].1 := Diagnostics.b_AircoTurnedOff;
+OutProfinetSIEMENS.aDataOut[100].2 := Diagnostics.b_Door1BatteryCompartmentOpen;
+OutProfinetSIEMENS.aDataOut[100].3 := Diagnostics.b_PowerSupplyFusesNOK          ;
+OutProfinetSIEMENS.aDataOut[100].4 := Diagnostics.b_PowerSupplyHVFusesNOK        ;
+OutProfinetSIEMENS.aDataOut[100].5 := Diagnostics.b_PowerSupply400VACDanfossNOK  ;
+OutProfinetSIEMENS.aDataOut[100].6 := Diagnostics.b_PowerSupply400VACNOK         ;
+OutProfinetSIEMENS.aDataOut[100].7 := Diagnostics.b_PowerSupply230VACNOK         ;
+OutProfinetSIEMENS.aDataOut[101].0 := Diagnostics.b_PowerSupply3F400VACNOK       ;
+OutProfinetSIEMENS.aDataOut[101].1 := Diagnostics.b_PowerInlet3x400VACNOK        ;
+OutProfinetSIEMENS.aDataOut[101].2 := Diagnostics.b_FireDetected;
+OutProfinetSIEMENS.aDataOut[101].3 := Diagnostics.b_DriveTripped;
+OutProfinetSIEMENS.aDataOut[101].4 := Diagnostics.b_TemperatureElectricalHigh;
+OutProfinetSIEMENS.aDataOut[101].5 := Diagnostics.b_HumidityElectricalHigh;
+OutProfinetSIEMENS.aDataOut[101].6 := Diagnostics.b_TemperatureBatteryHigh;
+OutProfinetSIEMENS.aDataOut[101].7 := Diagnostics.b_HumidityBatteryHigh;
+OutProfinetSIEMENS.aDataOut[102].0 := Diagnostics.b_HumidityElectricalTooHigh;
+OutProfinetSIEMENS.aDataOut[102].1 := Diagnostics.b_TemperatureElectricalTooHigh;
+OutProfinetSIEMENS.aDataOut[102].2 := Diagnostics.b_HumidityBatteryTooHigh;
+OutProfinetSIEMENS.aDataOut[102].3 := Diagnostics.b_TemperatureBatteryTooHigh;
+OutProfinetSIEMENS.aDataOut[102].4 := Diagnostics.b_Spare;
+OutProfinetSIEMENS.aDataOut[102].5 := Diagnostics.b_String1Absent;
+OutProfinetSIEMENS.aDataOut[102].6 := Diagnostics.b_String2Absent;
+OutProfinetSIEMENS.aDataOut[102].7 := Diagnostics.b_String3Absent;
+OutProfinetSIEMENS.aDataOut[103].0 := Diagnostics.b_String4Absent;
+OutProfinetSIEMENS.aDataOut[103].1 := Diagnostics.b_String5Absent;
+OutProfinetSIEMENS.aDataOut[103].2 := Diagnostics.b_String6Absent;
+OutProfinetSIEMENS.aDataOut[103].3 := Diagnostics.b_ALOCellTempLow;
+OutProfinetSIEMENS.aDataOut[103].4 := Diagnostics.b_ALOCellTempHigh;
+OutProfinetSIEMENS.aDataOut[103].5 := Diagnostics.b_AVGCellTempLow;
+OutProfinetSIEMENS.aDataOut[103].6 := Diagnostics.b_AVGCellTempHigh;
+OutProfinetSIEMENS.aDataOut[103].7 := Diagnostics.b_ALOCellVoltageLow;
+OutProfinetSIEMENS.aDataOut[104].0 := Diagnostics.b_ALOCellVoltageHigh;
+OutProfinetSIEMENS.aDataOut[104].1 := Diagnostics.b_AVGCellVoltageLow;
+OutProfinetSIEMENS.aDataOut[104].2 := Diagnostics.b_AVGCellVoltageHigh;
+OutProfinetSIEMENS.aDataOut[104].3 := Diagnostics.b_OverCurrent10s;
+OutProfinetSIEMENS.aDataOut[104].4 := Diagnostics.b_SOCLow;
+OutProfinetSIEMENS.aDataOut[104].5 := Diagnostics.b_EmergencyError;
+OutProfinetSIEMENS.aDataOut[104].6 := Diagnostics.b_CellCapacityTooLow;
+OutProfinetSIEMENS.aDataOut[104].7 := Diagnostics.b_CellCapacityTooHigh;
+OutProfinetSIEMENS.aDataOut[105].0 := Diagnostics.b_ALOCellTempTooLow;
+OutProfinetSIEMENS.aDataOut[105].1 := Diagnostics.b_ALOCellTempTooHigh;
+OutProfinetSIEMENS.aDataOut[105].2 := Diagnostics.b_AVGCellTempTooLow;
+OutProfinetSIEMENS.aDataOut[105].3 := Diagnostics.b_AVGCellTempTooHigh;
+OutProfinetSIEMENS.aDataOut[105].4 := Diagnostics.b_ALOCellVoltageTooLow;
+OutProfinetSIEMENS.aDataOut[105].5 := Diagnostics.b_ALOCellVoltageTooHigh;
+OutProfinetSIEMENS.aDataOut[105].6 := Diagnostics.b_AVGCellVoltageTooLow;
+OutProfinetSIEMENS.aDataOut[105].7 := Diagnostics.b_AVGCellVoltageTooHigh;
+OutProfinetSIEMENS.aDataOut[106].0 := Diagnostics.b_Overcurrent;
+OutProfinetSIEMENS.aDataOut[106].1 := Diagnostics.b_SystemVoltageTooHigh;
+OutProfinetSIEMENS.aDataOut[106].2 := Diagnostics.b_SystemVoltageTooLow;
+OutProfinetSIEMENS.aDataOut[106].3 := Diagnostics.b_SOCTooLow;
+OutProfinetSIEMENS.aDataOut[106].4 := Diagnostics.b_SOCToohigh;
+OutProfinetSIEMENS.aDataOut[106].5 := Diagnostics.b_BatteryLimitsExceeded;
+OutProfinetSIEMENS.aDataOut[106].6 := Diagnostics.b_BMSErrorState;
+OutProfinetSIEMENS.aDataOut[106].7 := Diagnostics.b_InverterFault;
+OutProfinetSIEMENS.aDataOut[107].0 := Diagnostics.b_CBControlNotOK;
+OutProfinetSIEMENS.aDataOut[107].1 := Diagnostics.b_WarningInverter;
+OutProfinetSIEMENS.aDataOut[107].2 := Diagnostics.b_DCAboveLimit;
+OutProfinetSIEMENS.aDataOut[107].3 := Diagnostics.b_F1OverCurrent;
+OutProfinetSIEMENS.aDataOut[107].4 := Diagnostics.b_F2OverVoltage;
+OutProfinetSIEMENS.aDataOut[107].5 := Diagnostics.b_F9UnderVoltage;
+OutProfinetSIEMENS.aDataOut[107].6 := Diagnostics.b_F91ShortCircuit;
+OutProfinetSIEMENS.aDataOut[107].7 := Diagnostics.b_F3EarthFault;
+OutProfinetSIEMENS.aDataOut[108].0 := Diagnostics.b_F14UnitOverTemperature;
+OutProfinetSIEMENS.aDataOut[108].1 := Diagnostics.b_F56TemperatureFault;
+OutProfinetSIEMENS.aDataOut[108].2 := Diagnostics.b_F10LineSynchFault;
+OutProfinetSIEMENS.aDataOut[108].3 := Diagnostics.b_F52KeypadOCCommFault;
+OutProfinetSIEMENS.aDataOut[108].4 := Diagnostics.b_F53FieldbusFault;
+OutProfinetSIEMENS.aDataOut[108].5 := Diagnostics.b_F59SystembusFault;
+OutProfinetSIEMENS.aDataOut[108].6 := Diagnostics.b_F54SlotCommunicationFault;
+OutProfinetSIEMENS.aDataOut[108].7 := Diagnostics.b_F50Meas4mAFault;
+OutProfinetSIEMENS.aDataOut[109].0 := Diagnostics.b_AlarmDeviceReady;
+OutProfinetSIEMENS.aDataOut[109].1 := Diagnostics.b_AlarmCurrentA ;
+OutProfinetSIEMENS.aDataOut[109].2 := Diagnostics.b_AlarmCurrentB ;
+OutProfinetSIEMENS.aDataOut[109].3 := Diagnostics.b_AlarmCurrentC ;
+OutProfinetSIEMENS.aDataOut[109].4 := Diagnostics.b_AlarmVoltageAB;
+OutProfinetSIEMENS.aDataOut[109].5 := Diagnostics.b_AlarmVoltageBC;
+OutProfinetSIEMENS.aDataOut[109].6 := Diagnostics.b_AlarmVoltageCA;
+OutProfinetSIEMENS.aDataOut[109].7 := Diagnostics.b_AlarmActivePower;
+OutProfinetSIEMENS.aDataOut[110].0 := Diagnostics.b_AlarmReactivePower;
+OutProfinetSIEMENS.aDataOut[110].1 := Diagnostics.b_AlarmApparentPower;
+OutProfinetSIEMENS.aDataOut[110].2 := Diagnostics.b_AlarmActivePowerFactor;
+OutProfinetSIEMENS.aDataOut[110].3 := Diagnostics.b_AlarmFrequency;
+OutProfinetSIEMENS.aDataOut[110].4 := Diagnostics.b_AlarmDemandActiveEnergy;
+OutProfinetSIEMENS.aDataOut[110].5 := Diagnostics.b_AlarmSupplyActiveEnergy;
+OutProfinetSIEMENS.aDataOut[110].6 := Diagnostics.b_Insulation1Alarm ;
+OutProfinetSIEMENS.aDataOut[110].7 := Diagnostics.b_Insulation2Alarm ;
+OutProfinetSIEMENS.aDataOut[111].0 := Diagnostics.b_ConnectionFault ;
+OutProfinetSIEMENS.aDataOut[111].1 := Diagnostics.b_DCMinAlarm ;
+OutProfinetSIEMENS.aDataOut[111].2 := Diagnostics.b_DCPlusAlarm ;
+OutProfinetSIEMENS.aDataOut[111].3 := Diagnostics.b_SymmectricalAlarm;
+OutProfinetSIEMENS.aDataOut[111].4 := Diagnostics.b_DeviceError ;
+OutProfinetSIEMENS.aDataOut[111].5 := Diagnostics.b_CommonAlarm;
+OutProfinetSIEMENS.aDataOut[111].6 := Diagnostics.b_MeasurementAlarm;
+OutProfinetSIEMENS.aDataOut[111].7 := Diagnostics.b_DeviceInactive;
+OutProfinetSIEMENS.aDataOut[112].0 := Diagnostics.b_DCOffsetAlarm ;
+OutProfinetSIEMENS.aDataOut[112].1 := Diagnostics.b_CommonEDSAlarm;
+OutProfinetSIEMENS.aDataOut[112].2 := Diagnostics.b_PGHPulseAlarm;
+OutProfinetSIEMENS.aDataOut[112].3 := Diagnostics.b_ISOnetMeasurementAlarm;
+OutProfinetSIEMENS.aDataOut[112].4 := Diagnostics.b_PGHActiveAlarm;
+OutProfinetSIEMENS.aDataOut[112].5 := Diagnostics.b_CommunicationError;
+OutProfinetSIEMENS.aDataOut[112].6 := Diagnostics.b_AlarmSoftwareVersion;
+OutProfinetSIEMENS.aDataOut[112].7 := Diagnostics.b_AlarmIsolationDeviceReady;
+OutProfinetSIEMENS.aDataOut[113].0 := Diagnostics.b_AlarmNumberEquipments;
+OutProfinetSIEMENS.aDataOut[113].1 := Diagnostics.b_AlarmDigitalOutput1;
+OutProfinetSIEMENS.aDataOut[113].2 := Diagnostics.b_AlarmDigitalOutput2;
+OutProfinetSIEMENS.aDataOut[113].3 := Diagnostics.b_AlarmBuzzerFunctional;
+OutProfinetSIEMENS.aDataOut[113].4 := Diagnostics.b_AlarmRelayOperationMode;
+OutProfinetSIEMENS.aDataOut[113].5 := Diagnostics.b_AlarmRelay2OperationMode;
+OutProfinetSIEMENS.aDataOut[113].6 := Diagnostics.b_AlarmResponseValue1;
+OutProfinetSIEMENS.aDataOut[113].7 := Diagnostics.b_AlarmResponseValue2;
+OutProfinetSIEMENS.aDataOut[114].0 := Diagnostics.b_AlarmSystemType;
+OutProfinetSIEMENS.aDataOut[114].1 := Diagnostics.b_AlarmProfile;
+OutProfinetSIEMENS.aDataOut[114].2 := Diagnostics.b_AlarmInsulationResistance;
+OutProfinetSIEMENS.aDataOut[114].3 := Diagnostics.b_AlarmTestStatus;
+OutProfinetSIEMENS.aDataOut[114].4 := Diagnostics.b_AlarmAlarmStatus;
+OutProfinetSIEMENS.aDataOut[114].5 := Diagnostics.b_AlarmRange;
+OutProfinetSIEMENS.aDataOut[114].6 := Diagnostics.b_AlarmUnit;
+OutProfinetSIEMENS.aDataOut[114].7 := Diagnostics.b_AlarmInsulationResistance2;
+OutProfinetSIEMENS.aDataOut[115].0 := Diagnostics.b_AlarmVoltageL1L3;
+OutProfinetSIEMENS.aDataOut[115].1 := Diagnostics.b_AlarmIOState;
+OutProfinetSIEMENS.aDataOut[115].2 := Diagnostics.b_AlarmAlarmStatus2;
+OutProfinetSIEMENS.aDataOut[115].3 := Diagnostics.b_ResetAlarm;
+OutProfinetSIEMENS.aDataOut[115].4 := Diagnostics.b_Error;
+OutProfinetSIEMENS.aDataOut[115].5 := Diagnostics.b_Warning;
+OutProfinetSIEMENS.aDataOut[115].6 := Diagnostics.b_ClearHistory;
+OutProfinetSIEMENS.aDataOut[115].7 := Diagnostics.b_NormalShutdown ;
+OutProfinetSIEMENS.aDataOut[116].0 := Diagnostics.b_EmergencyShutdown ;
+OutProfinetSIEMENS.aDataOut[116].1 := Diagnostics.b_SelectModus;
+OutProfinetSIEMENS.aDataOut[116].2 := Diagnostics.b_SelectSubModus;
+OutProfinetSIEMENS.aDataOut[116].3 := Diagnostics.b_ActivatePowerSettings;
+OutProfinetSIEMENS.aDataOut[116].4 := Diagnostics.b_EmergencyStopSafety;
+OutProfinetSIEMENS.aDataOut[116].5 := Diagnostics.b_EmergencyStopDelayedSafety;
+OutProfinetSIEMENS.aDataOut[116].6 := Diagnostics.b_EmergencyStopChannel1 ;
+OutProfinetSIEMENS.aDataOut[116].7 := Diagnostics.b_EmergencyStopChannel2 ;
+OutProfinetSIEMENS.aDataOut[117].0 := Diagnostics.b_IsolationWarningDC ;
+OutProfinetSIEMENS.aDataOut[117].1 := Diagnostics.b_IsolationErrorDC ;
+OutProfinetSIEMENS.aDataOut[117].2 := Diagnostics.b_IsolationWarningAC ;
+OutProfinetSIEMENS.aDataOut[117].3 := Diagnostics.b_IsolationErrorAC;
+OutProfinetSIEMENS.aDataOut[117].4 := Diagnostics.b_EmergencyShutdownSoftware;
+OutProfinetSIEMENS.aDataOut[117].5 := Diagnostics.b_EmergencyOpenBMS;
+OutProfinetSIEMENS.aDataOut[117].6 := Diagnostics.b_InverterWatchDogError;
+
+OutProfinetSIEMENS.aDataOut[117].7 := Diagnostics.b_TemperatureElectricalTooHigh;
+OutProfinetSIEMENS.aDataOut[118].0 := Diagnostics.b_TemperatureBatteryTooHigh;
+OutProfinetSIEMENS.aDataOut[118].1 := Diagnostics.b_HumidityElectricalTooHigh;
+OutProfinetSIEMENS.aDataOut[118].2 := Diagnostics.b_HumidityBatteryTooHigh;
+
+OutProfinetSIEMENS.aDataOut[118].3 := Diagnostics.b_BmsStateNok;
+OutProfinetSIEMENS.aDataOut[118].4 := Diagnostics.b_FireDetectionSystemFault;
+OutProfinetSIEMENS.aDataOut[118].5 := Diagnostics.b_DoorInverterCabinetOpen;
+OutProfinetSIEMENS.aDataOut[118].6 := Diagnostics.b_TransportModeConditionsNOK;
+OutProfinetSIEMENS.aDataOut[118].7 := Diagnostics.b_EdmErrorPowerSupplyRelais;
+OutProfinetSIEMENS.aDataOut[119].0 := Diagnostics.b_EdmErrorSafetyShuntRelais;
+OutProfinetSIEMENS.aDataOut[119].1 := Diagnostics.b_MeasurementIncomplete ;
+OutProfinetSIEMENS.aDataOut[119].2 := Diagnostics.b_ValueOutOfRange;
+OutProfinetSIEMENS.aDataOut[119].3 := Diagnostics.b_ExtControlCommFault;
+OutProfinetSIEMENS.aDataOut[119].4 := Diagnostics.b_UPSLowVoltageWarning;
+OutProfinetSIEMENS.aDataOut[119].5 := Diagnostics.b_UPSTimedShutdown;
+
+OutProfinetSIEMENS.aDataOut[120].0 := OutProfinetSIEMENS.i_BessModeFB.0;
+OutProfinetSIEMENS.aDataOut[120].1 := OutProfinetSIEMENS.i_BessModeFB.1;
+OutProfinetSIEMENS.aDataOut[120].2 := OutProfinetSIEMENS.i_BessModeFB.2;
+OutProfinetSIEMENS.aDataOut[120].3 := OutProfinetSIEMENS.i_InvModeFB.0;
+OutProfinetSIEMENS.aDataOut[120].4 := OutProfinetSIEMENS.i_InvModeFB.1;
+
+
+]]></ST>
+    </Implementation>
+    <LineIds Name="SetSIEMENSOutput">
+      <LineId Id="465" Count="0" />
+      <LineId Id="6" Count="34" />
+      <LineId Id="612" Count="1" />
+      <LineId Id="472" Count="0" />
+      <LineId Id="376" Count="0" />
+      <LineId Id="473" Count="0" />
+      <LineId Id="536" Count="0" />
+      <LineId Id="539" Count="0" />
+      <LineId Id="541" Count="1" />
+      <LineId Id="377" Count="1" />
+      <LineId Id="372" Count="2" />
+      <LineId Id="41" Count="2" />
+      <LineId Id="256" Count="1" />
+      <LineId Id="475" Count="2" />
+      <LineId Id="538" Count="0" />
+      <LineId Id="44" Count="155" />
+      <LineId Id="314" Count="0" />
+      <LineId Id="545" Count="0" />
+      <LineId Id="663" Count="1" />
+      <LineId Id="380" Count="0" />
+      <LineId Id="379" Count="0" />
+      <LineId Id="381" Count="3" />
+      <LineId Id="387" Count="0" />
+      <LineId Id="444" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

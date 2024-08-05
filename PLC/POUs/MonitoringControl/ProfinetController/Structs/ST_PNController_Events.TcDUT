@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_PNController_Events" Id="{fab317f0-218d-47b3-85fc-35836b4482d1}">
+    <Declaration><![CDATA[TYPE ST_PNController_Events :
+STRUCT
+	b_HeartBeatLost				:	BOOL;
+	b_DataConfigurationFault	:	BOOL;
+	b_NetworkConfigurationFault	:	BOOL;
+	b_DeviceFault				:	BOOL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

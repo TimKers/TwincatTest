@@ -1,0 +1,307 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_Heatpump" Id="{4d1361c4-7375-440c-8729-687ac25365b9}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_Heatpump
+VAR
+	u_counter: UINT;
+	InitSFC			:	FB_HeatPumpInit;
+	OperationSFC	:	FB_HeatPumpOperation;
+	
+	//only written once at init.
+	HeatPumpID		:	BYTE := 0;
+END_VAR
+
+VAR_STAT
+	ui_Instancecounter : byte := 0;
+END_VAR
+
+VAR	
+	MBMaster				: 	ModbusRtuMasterV2_KL6x22B;
+	
+	DataBuffer				:	ARRAY[0..50] OF WORD;
+//	b_MBBusy				:	BOOL;
+//	b_MBerr					:	BOOL;
+//	ui_cbRead				:	UINT;
+//	b_EnableTransmission	:	BOOL;
+//	ModbusStartTrigger		:	R_Trig;
+//	MBRetryCount			:	BYTE;
+	
+	
+//	SendValue		:	WORD;
+	
+	OperatingPoint	:	st_OperatingPoint;
+END_VAR
+
+VAR_OUTPUT
+	get			:	st_HeatpumpGet;
+	MBCommBusy	:	BOOL := FALSE;
+END_VAR
+
+VAR_INPUT
+	ACPowerStatus	:	BOOL;
+	MBFree			:	BOOL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[//HeatpumpId is set once during first call
+//var Stat InstanceCounter is shared between all functionblocks
+IF HeatPumpId = 0 THEN
+	ui_Instancecounter := ui_Instancecounter + 1;
+	HeatPumpID := ui_Instancecounter ;
+ELSE
+	IF NOT ACPowerStatus THEN
+		//Dont read all sensor data. Just monitor errors. We are not going to do anyting with the data anyway.
+		InitSFC.SFCInit := TRUE;
+		OperationSFC.SFCInit := TRUE;
+		//OperationalSFC();
+	ELSE
+		InitSFC.SFCInit := FALSE;
+		OperationSFC.SFCInit := FALSE;
+	END_IF
+END_IF
+
+InitSFC(MBMaster := MBMaster, Get := Get, ACPowerSTatus := ACPowerStatus, HeatPumpID:=HeatPumpID);
+OperationSFC(MBMaster := MBMaster, Get := Get, ACPowerSTatus := ACPowerStatus, HeatPumpID:=HeatPumpID,MBFree:=MBFree, OperatingPoint:=OperatingPoint, MBCommBusy=>MBCommbusy);]]></ST>
+    </Implementation>
+    <Folder Name="External methods" Id="{ffbc8895-390e-4e55-bdb8-e7349cf6f2f6}" />
+    <Method Name="EMStop" Id="{5c418bf0-1070-4e41-8a2d-814833658cd1}" FolderPath="External methods\">
+      <Declaration><![CDATA[METHOD EMStop : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+get.HeatPumpState := eHeatpumpState.OFF;
+
+EMstop := True;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="getDiagnostics" Id="{c255fa85-29b0-4377-b377-44c88c8da2f7}" FolderPath="External methods\">
+      <Declaration><![CDATA[METHOD GetDiagnostics 
+VAR_IN_OUT
+	AddError		: ARRAY [*] OF FB_AddErrorST;
+	a_ActiveEvents	: ARRAY [*] OF ST_ErrorStruct;
+	w_Index			: WORD;
+END_VAR
+
+VAR_OUTPUT
+	b_errorActive	: BOOL;
+	b_warningActive	: BOOL;
+END_VAR
+
+VAR
+	by_errCt	: BYTE;
+	by_warnCt	: BYTE;
+	w_ID		: WORD;
+END_VAR
+
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[	(*Modbus comm fault*)	AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_CommError,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 1 + w_ID,
+			s_Message				:= 'Modbus communication error',
+			e_sev					:= eSeverity.NormalShutdown,	
+			in_b_AutoClear			:= FALSE,
+			//in_e_ErrAckAccess		:= TRUE,
+			);
+		IF AddError[w_Index].b_out THEN by_errCt := by_errCt + 1; END_IF;
+		w_Index := w_Index +1;
+		
+	(*Heatpump Compressor fault*)	AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_CompressorError,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 2 + w_ID,
+			s_Message				:= 'Heatpump Compressor fault',
+			e_sev					:= eSeverity.NormalShutdown,	
+			in_b_AutoClear			:= FALSE,
+			//in_e_ErrAckAccess		:= TRUE,
+			);
+		IF AddError[w_Index].b_out THEN by_errCt := by_errCt + 1; END_IF;
+		w_Index := w_Index +1;
+	
+	(*Heatpump Fan fault*)			AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_FanError,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 3 + w_ID,
+			s_Message				:= 'Heatpump Fan fault',
+			e_sev					:= eSeverity.NormalShutdown,	
+			in_b_AutoClear			:= FALSE,
+			//in_e_ErrAckAccess		:= TRUE,
+			);
+		IF AddError[w_Index].b_out THEN by_errCt := by_errCt + 1; END_IF;
+		w_Index := w_Index +1;
+		
+	(*HHeatpump Internal IO fault*)		AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_IOError ,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 4 + w_ID,
+			s_Message				:= 'Heatpump Internal IO fault',
+			e_sev					:= eSeverity.NormalShutdown,	
+			in_b_AutoClear			:= FALSE,
+			//in_e_ErrAckAccess		:= TRUE,
+			);
+		IF AddError[w_Index].b_out THEN by_errCt := by_errCt + 1; END_IF;
+		w_Index := w_Index +1;
+		
+	(*Heatpump pressure fault*)		AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_PressureError,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 5 + w_ID,
+			s_Message				:= 'Heatpump pressure fault',
+			e_sev					:= eSeverity.NormalShutdown,	
+			in_b_AutoClear			:= FALSE,
+			//in_e_ErrAckAccess		:= TRUE,
+			);
+		IF AddError[w_Index].b_out THEN by_errCt := by_errCt + 1; END_IF;
+		w_Index := w_Index +1;
+		
+	(*Heatpump Probe fault*)		AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_ProbeError,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 6 + w_ID,
+			s_Message				:= 'Heatpump Probe fault',
+			e_sev					:= eSeverity.NormalShutdown,	
+			in_b_AutoClear			:= FALSE,
+			//in_e_ErrAckAccess		:= TRUE,
+			);
+		IF AddError[w_Index].b_out THEN by_errCt := by_errCt + 1; END_IF;
+		w_Index := w_Index +1;	
+
+	(*Heatpump Pump fault*)			AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_PumpError,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 7 + w_ID,
+			s_Message				:= 'Heatpump Pump fault',
+			e_sev					:= eSeverity.NormalShutdown,	
+			in_b_AutoClear			:= FALSE,
+			//in_e_ErrAckAccess		:= TRUE,
+			);
+		IF AddError[w_Index].b_out THEN by_errCt := by_errCt + 1; END_IF;
+		w_Index := w_Index +1;	
+
+	(*Heatpump valve fault*)			AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_ValveError,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 8 + w_ID,
+			s_Message				:= 'Heatpump Valve fault',
+			e_sev					:= eSeverity.NormalShutdown,	
+			in_b_AutoClear			:= FALSE,
+			//in_e_ErrAckAccess		:= TRUE,
+			);
+		IF AddError[w_Index].b_out THEN by_errCt := by_errCt + 1; END_IF;
+		w_Index := w_Index +1;	
+
+	(*Heatpump Water temperature error*)			AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_WaterTempError,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 9 + w_ID,
+			s_Message				:= 'Heatpump Water temperature error',
+			e_sev					:= eSeverity.NormalShutdown,	
+			in_b_AutoClear			:= FALSE,
+			//in_e_ErrAckAccess		:= TRUE,
+			);
+		IF AddError[w_Index].b_out THEN by_errCt := by_errCt + 1; END_IF;
+		w_Index := w_Index +1;	
+
+(*Heatpump Comm warning*)			AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_commwarning,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 10 + w_ID,
+			s_Message				:= 'Heatpump communication warning',
+			e_sev					:= eSeverity.Info,	
+			in_b_AutoClear			:= TRUE,
+			//in_e_ErrAckAccess		:= TRUE,
+			);
+		
+		//for initial use, get notice if 1 packet fails. Clear immediately after datalogger run
+		get.Events.b_CommWarning := FALSE;
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Reset" Id="{1900faca-1d07-4824-9433-869147e176e5}" FolderPath="External methods\">
+      <Declaration><![CDATA[METHOD Reset : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//until restarting the heatpump we don't know if errors are gone. So clear them for now.
+
+get.Events.b_CommError := FALSE;
+get.Events.b_CompressorError := FALSE;
+get.Events.b_FanError := FALSE;
+get.Events.b_IOError := FALSE;
+get.Events.b_PressureError := FALSE;
+get.Events.b_ProbeError := FALSE;
+get.Events.b_PumpError := FALSE;
+get.Events.b_ValveError := FALSE;
+get.Events.b_WaterTempError := FALSE;
+
+Reset := True;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="WriteSetpoint" Id="{4352f7d9-816c-47f1-a24b-96f628e791a8}" FolderPath="External methods\">
+      <Declaration><![CDATA[METHOD WriteSetpoint : BOOL
+VAR_INPUT
+	OperatingMode	:	eHeatpumpMode;
+	SetPoint		: 	REAL;
+END_VAR
+
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+
+OperatingPoint.OperatingMode := OperatingMode;
+OperatingPoint.Setpoint := SetPoint;]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_Heatpump">
+      <LineId Id="1110" Count="1" />
+      <LineId Id="1108" Count="0" />
+      <LineId Id="1107" Count="0" />
+      <LineId Id="1106" Count="0" />
+      <LineId Id="1105" Count="0" />
+      <LineId Id="1113" Count="0" />
+      <LineId Id="712" Count="0" />
+      <LineId Id="1085" Count="0" />
+      <LineId Id="1116" Count="0" />
+      <LineId Id="1088" Count="0" />
+      <LineId Id="1117" Count="1" />
+      <LineId Id="1120" Count="0" />
+      <LineId Id="1119" Count="0" />
+      <LineId Id="1112" Count="0" />
+      <LineId Id="1067" Count="0" />
+      <LineId Id="998" Count="0" />
+      <LineId Id="1121" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Heatpump.EMStop">
+      <LineId Id="10" Count="0" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="11" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Heatpump.getDiagnostics">
+      <LineId Id="24" Count="106" />
+      <LineId Id="154" Count="10" />
+      <LineId Id="150" Count="0" />
+      <LineId Id="152" Count="1" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Heatpump.Reset">
+      <LineId Id="10" Count="0" />
+      <LineId Id="12" Count="0" />
+      <LineId Id="11" Count="0" />
+      <LineId Id="13" Count="7" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Heatpump.WriteSetpoint">
+      <LineId Id="231" Count="0" />
+      <LineId Id="229" Count="0" />
+      <LineId Id="207" Count="0" />
+      <LineId Id="230" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

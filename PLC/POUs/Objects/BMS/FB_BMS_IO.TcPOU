@@ -1,0 +1,32 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_BMS_IO" Id="{09c82cc6-0e1a-4de8-8d19-79768c652534}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_BMS_IO
+
+VAR_INPUT
+	HWControl			:	st_BMS_IO;
+END_VAR
+
+VAR_OUTPUT
+	BMSPowerControl			AT %Q* : st_BMS_IO;
+END_VAR
+
+VAR
+	PowerUpDelay	:	TON := (PT := TIME#1s0ms);
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+BMSPowerControl.b_BMS_230V_Enable := HWControl.b_BMS_230V_Enable;
+BMSPowerControl.b_BMS_24V_Enable	:= HWControl.b_BMS_24V_Enable;
+
+]]></ST>
+    </Implementation>
+    <LineIds Name="FB_BMS_IO">
+      <LineId Id="25" Count="1" />
+      <LineId Id="28" Count="0" />
+      <LineId Id="67" Count="0" />
+      <LineId Id="36" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

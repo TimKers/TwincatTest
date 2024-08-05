@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="stLedControl" Id="{3015df0b-0e8d-4ef7-97d7-2be537b14e60}">
+    <Declaration><![CDATA[TYPE stLedControl :
+STRUCT
+	b_Execute	:	BOOL;
+	b_Send		:	BOOL;
+	b_Update	:	BOOL;
+	by_Command	:	BYTE;
+	w_Index		:	WORD;
+	w_Length	:	WORD;
+	w_Parameter	:	WORD;
+	dw_Color	:	DWORD;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

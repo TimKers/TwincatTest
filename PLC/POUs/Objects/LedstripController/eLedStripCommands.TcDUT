@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="eLedStripCommands" Id="{4132c493-f9b1-411e-9fce-b1a973e457e7}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE eLedStripCommands :
+(
+	NOP 		:= 	0,
+	Fill		:=	1,
+	ClearAll	:=	2,
+	CopyPixels	:=	3,
+	MOVEPixels	:=	4,
+	ROLPixels	:=	5,
+	RORPixels	:=	6,
+	ReverseOrder	:=	7,
+	GradientFirstColor	:=	8,
+	GradientLastColor	:=	9	
+) BYTE;
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

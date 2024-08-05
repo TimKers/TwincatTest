@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="eStatus" Id="{dbe0ee84-f684-4415-993b-7d0f54b2e8a6}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+{attribute 'to_string'}
+TYPE eStatus :
+(
+	Init					:= 0,	// Not ready to do anything yet
+	off						:= 1, 	// OFF MCCBs OPEN,
+	idle					:= 2, 	// MCCB CLOSED, No modulation, Netcontactor CLOSED
+	running					:= 3,	// MCCB CLOSED + Modulation, Netcontactor CLOSED
+	ecorunning				:= 4,	// MCCB CLOSED + Modulation with only one out of two inverters, Netcontactor CLOSED
+	fault					:= 5,	// FAULT STATE
+	starting_master			:= 6, 	// Starting master
+	starting_slave			:= 7,	// Starting slave
+	Standby_GridSupply		:= 8, 	// POWERMODULE 1 + 2 off, Netcontactor Closed
+	Standby_InternalSupply	:= 9,	// PowerModule 1 ON, powermodule 2 Off, Netcontactor OPEN
+	shutdown				:= 10
+);		
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

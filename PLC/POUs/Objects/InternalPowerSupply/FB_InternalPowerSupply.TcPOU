@@ -1,0 +1,480 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_InternalPowerSupply" Id="{99b5595d-91f9-4503-8fb7-aed8af10f6d8}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_InternalPowerSupply
+VAR CONSTANT
+	//w_ID														: WORD := eObject_ID.InternalPowerSupply;
+END_VAR
+
+VAR
+	IO: FB_InternalPowerSupply_IO;
+	InternalPowerDemand: ST_PowerDemand;
+	b_EMStopActive : BOOL := FALSE;
+END_VAR
+
+VAR_INPUT
+	Set					:	ST_InternalPowerSupply_Set;
+	BMSPowerstate		:	eHVDC_Powerstatus;
+	b_ConditioningOnBatteryAllowed:	BOOL;
+END_VAR
+
+VAR_OUTPUT
+	Get					:	ST_InternalPowerSupply_Get;
+	b_HVDC_Enable		:	BOOL;
+END_VAR
+
+VAR
+	ShutdownRequested	: BOOL := FALSE;	
+	UPS					: FB_UPS;
+END_VAR
+
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[(*
+FB_InternalPowersupply
+	Inputs:
+		Power demand set by each applicable block, each with 3 booleans for 24V, 400VAc and HVDC:
+			CoolingSystemPowerDemand	:	st_PowerDemand;
+			PowerStackPowerDemand		:	st_PowerDemand;	
+			UPSPowerDemand				:	st_PowerDemand;
+			InternalPowerDemand			:	st_PowerDemand;
+		
+		Main system settings:	
+			b_GeneralPowerEnable			: 	BOOL;	No power allowed without this being true. UPS only mode
+		
+		Input from powerstack. 400VAC available on busbar (via inverter or grid supply)	
+			b_InternalBusbarACAvailable
+		
+		b_ShutdownUPS
+			Kills UPS power, but only if other supplies are already down. 
+	
+	Outputs
+		b_24VdcAvailable		
+		b_HVDCAvailable			
+		b_400VACAvailable		
+			
+		b_BMSForceOff 			//Output to FB_BMS to kill BMS supply voltage.
+	
+		UPS			//UPS data structure
+	
+		Events		
+*)
+
+//only if other power supplies are already down, UPS disable is allowed. Unwanted on live system.
+IF (NOT (get.b_24VdcAvailable OR get.b_400VACAvailable OR get.b_HVDCAvailable)) AND set.b_ShutdownUPS THEN
+	UPS.Shutdown();
+END_IF
+
+UPS(b_24v_available := get.b_24VdcAvailable, Get => get.UPS);
+IO();
+ACPowerControl();
+DCPowerControl();
+HVDCPowerControl();
+
+
+
+
+
+
+
+
+
+
+
+]]></ST>
+    </Implementation>
+    <Method Name="ACPowerControl" Id="{5916b7c6-c369-43a6-ad0f-f820d571c778}">
+      <Declaration><![CDATA[METHOD PRIVATE ACPowerControl : BOOL
+VAR
+	AC_StartupDelay: TON := (PT := IPSParams.ACStartupDelay);
+END_VAR
+
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//AC control function
+//Initial Diagnostics by reading fuse feedback
+get.Events.b_GridInputFuseTripped 	:= NOT IO.GridFuseOK;
+get.Events.b_CEEInputFuseTripped 	:= NOT IO.CeeFuseOK;
+
+IF set.b_GeneralPowerEnable OR b_EMStopActive THEN
+	//Grid power has priority over CEE plug
+	IF 	IO.GridFuseOK AND set.b_InternalBusbarACAvailable THEN
+		IO.SetACConnectionMode := 1;	//switch to grid AC
+		AC_StartupDelay.IN := TRUE;	
+	ELSIF IO.CEE_ACAvailable THEN 
+		IO.SetACConnectionMode := 2;	//switch to CEE AC
+		
+		//not anymore
+		//IF NOT Config.b_NeutralTransformer THEN //internal neutral transformer has longer startup time
+		//	AC_StartupDelay.PT := IpsParams.ACStartupDelay+IPSParams.IntZPTStartupDelay;	
+		//END_IF
+		
+		AC_StartupDelay.IN := TRUE;
+	ELSE
+		IO.SetACConnectionMode := 0;	//disable
+		AC_StartupDelay.IN := FALSE;
+	END_IF
+ELSE 
+	IO.SetACConnectionMode := 0;	//disable
+	AC_StartupDelay.IN := FALSE;
+END_IF
+
+//after startup delay, internal 400VAC is available
+get.b_400VACAvailable := AC_StartupDelay.Q;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="DCPowerControl" Id="{4cfaa935-ee98-4c42-8d5b-fbc6199322b8}">
+      <Declaration><![CDATA[METHOD DCPowerControl : BOOL
+VAR_INPUT
+END_VAR
+VAR
+	DC_Required: BOOL;
+	DCPSU_StartupDelay: TON := (PT := IPSParams.DCPSU_StartupDelay);
+	ACPSU_StartupDelay: TON := (PT := IPSParams.ACPSU_StartupDelay);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[ACPSU_StartupDelay.IN := get.b_400VACAvailable;
+DCPSU_StartupDelay.IN := get.b_HVDCAvailable;
+
+//if psu is not online after the startup delay, raise the fault status.
+get.Events.b_ACPSUFault := ACPSU_StartupDelay.Q AND NOT IO.ACPSU_OK;
+get.Events.b_DCPSUFault := DCPSU_StartupDelay.Q AND NOT IO.DCPSU_OK;
+
+//if any of the psu's is online, 24V is available
+get.b_24VdcAvailable := IO.ACPSU_OK OR IO.DCPSU_OK;
+
+//All parts can demand 24V
+DC_Required :=	set.CoolingSystemPowerDemand.b_Demand_24V OR 
+				set.PowerStackPowerDemand.b_Demand_24V OR 
+				set.UPSPowerDemand.b_Demand_24V;
+
+//if no 400VAC available during 24VDC request, request HVDC ON for LVDC power				
+internalPowerDemand.b_Demand_HVDC := DC_Required AND NOT get.b_400VACAvailable;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="EMstop" Id="{4866248a-59ca-4029-a026-7364cef193b4}">
+      <Declaration><![CDATA[METHOD PUBLIC EMstop : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//return true if done
+b_EMStopActive := TRUE;
+
+//return true when all supplies are lost.
+EMStop := not(get.b_24VdcAvailable OR get.b_400VACAvailable OR get.b_HVDCAvailable);]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="GetDiagnostics" Id="{f562ae03-1873-4d82-904d-4e0cc41d7903}">
+      <Declaration><![CDATA[METHOD GetDiagnostics 
+VAR_IN_OUT
+	AddError		: ARRAY [*] OF FB_AddErrorST;
+	a_ActiveEvents	: ARRAY [*] OF ST_ErrorStruct;
+	w_Index			: WORD;
+END_VAR
+
+VAR_OUTPUT
+	b_errorActive	: BOOL;
+	b_warningActive	: BOOL;
+END_VAR
+
+VAR
+	by_errCt	: BYTE;
+	by_warnCt	: BYTE;
+	w_ID		: WORD;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+//check if this call works:
+UPS.GetDiagnostics(AddError := AddError, a_ActiveEvents := a_ActiveEvents, w_Index := w_Index, b_errorActive => b_errorActive, b_warningActive => b_warningActive);
+
+(*IPS*)
+	(*AC PSU fault*)		AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_ACPSUFault,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 1 + w_ID,
+			s_Message				:= 'AC PSU fault',
+			e_sev					:= eSeverity.Warning,
+			);
+		IF AddError[w_Index].b_out THEN by_WarnCt := by_WarnCt + 1; END_IF;
+		w_Index := w_Index +1;
+		
+	(*DC PSU fault*)		AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_DCPSUFault,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 1 + w_ID,
+			s_Message				:= 'DC PSU fault',
+			e_sev					:= eSeverity.Warning,
+			);
+		IF AddError[w_Index].b_out THEN by_WarnCt := by_WarnCt + 1; END_IF;
+		w_Index := w_Index +1;
+	
+	(*24V fault*)		AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_DCPSUFault AND Get.Events.b_ACPSUFault,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 1 + w_ID,
+			s_Message				:= '24V supply failed',
+			e_sev					:= eSeverity.QuickShutdown,
+			);
+		IF AddError[w_Index].b_out THEN by_errCt := by_errCt + 1; END_IF;
+		w_Index := w_Index +1;	
+		
+	(*CEE fuse tripped*)		AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_CEEInputFuseTripped,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 1 + w_ID,
+			s_Message				:= 'CEE Standby power input fuse error',
+			e_sev					:= eSeverity.Warning,
+			in_b_AutoClear			:= TRUE,
+			
+			);
+		IF AddError[w_Index].b_out THEN by_WarnCt := by_WarnCt + 1; END_IF;
+		w_Index := w_Index +1;
+	
+	(*internal grid fuse fault*)		AddError[w_Index](
+			in_b_ErrorTrig		:= Get.Events.b_GridInputFuseTripped,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 1 + w_ID,
+			s_Message				:= 'Internal supply Grid fuse error',
+			e_sev					:= eSeverity.QuickShutdown,
+			in_b_AutoClear			:= TRUE,
+			);
+		IF AddError[w_Index].b_out THEN by_errCt := by_errCt + 1; END_IF;
+		w_Index := w_Index +1;
+		
+	(*EMSTOP HVDC shutdown failed*)		AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_HVDCShutdownTimeExceeded,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 1 + w_ID,
+			s_Message				:= 'HVDC shutdown sequence failed',
+			e_sev					:= eSeverity.QuickShutdown,			//<-- already in emstop, but this is a severe error
+			);
+		IF AddError[w_Index].b_out THEN by_errCt := by_errCt + 1; END_IF;
+		w_Index := w_Index +1;
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="HVDCPowerControl" Id="{ed7ee3c2-5980-4244-9ba9-7c622b5d790a}">
+      <Declaration><![CDATA[METHOD PRIVATE HVDCPowerControl : BOOL
+VAR_INPUT
+END_VAR
+
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+//The powerstack demands HVDC directly. 
+IF b_EMStopActive THEN
+	b_HVDC_Enable := FALSE;
+ELSE
+	b_HVDC_Enable := set.PowerStackPowerDemand.b_Demand_HVDC 
+		OR (InternalPowerDemand.b_Demand_HVDC AND b_ConditioningOnBatteryAllowed AND NOT ShutdownRequested);
+END_IF						
+
+IF BMSPowerState = eHVDC_Powerstatus.ON THEN
+	get.b_HVDCAvailable := TRUE;
+ELSE
+	get.b_HVDCAvailable := FALSE;
+END_IF
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Reset" Id="{d1725ace-f077-4c1f-9e1a-d4d8e986182f}">
+      <Declaration><![CDATA[METHOD Reset : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//reset system
+//return true if ok
+
+b_EMStopActive 					:= 	FALSE;
+IO.b_InternalHVDCConnected		:=	TRUE;
+
+Reset := NOT get.Events.b_GridInputFuseTripped;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SystemShutdown" Id="{3b87d144-400f-4b3a-bef6-5aea1582308c}">
+      <Declaration><![CDATA[METHOD SystemShutdown : BOOL
+VAR_INPUT
+	b_force		:	Bool;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+IF B_force THEN
+	IO.SetACConnectionMode 		:= 	0;
+	IO.b_InternalHVDCConnected	:=	FALSE;
+	IO.Write();
+
+	UPS.Shutdown();
+ELSE
+	//no unforced shutdown allowed if HVDC is still online.
+	//if HVDC offline, disable AC inputs and decouple HV contactors
+	//Wait for 400VAC and 24V to be offline, then kill the UPS
+	IF NOT get.b_HVDCAvailable THEN
+		IO.b_InternalHVDCConnected := 0;
+		IO.SetACConnectionMode 		:= 	0;
+		IF NOT get.b_400VACAvailable AND get.b_24VdcAvailable THEN
+			UPS.Shutdown();
+		END_IF
+	END_IF
+END_IF
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_InternalPowerSupply">
+      <LineId Id="2413" Count="0" />
+      <LineId Id="2532" Count="0" />
+      <LineId Id="2501" Count="0" />
+      <LineId Id="2515" Count="0" />
+      <LineId Id="2505" Count="4" />
+      <LineId Id="2516" Count="0" />
+      <LineId Id="2511" Count="1" />
+      <LineId Id="2517" Count="0" />
+      <LineId Id="2513" Count="1" />
+      <LineId Id="2504" Count="0" />
+      <LineId Id="2521" Count="0" />
+      <LineId Id="2533" Count="1" />
+      <LineId Id="2537" Count="7" />
+      <LineId Id="2536" Count="0" />
+      <LineId Id="2500" Count="0" />
+      <LineId Id="2529" Count="0" />
+      <LineId Id="2528" Count="0" />
+      <LineId Id="2524" Count="0" />
+      <LineId Id="2530" Count="1" />
+      <LineId Id="2470" Count="0" />
+      <LineId Id="1242" Count="0" />
+      <LineId Id="1241" Count="0" />
+      <LineId Id="2416" Count="0" />
+      <LineId Id="2250" Count="0" />
+      <LineId Id="1282" Count="0" />
+      <LineId Id="2440" Count="0" />
+      <LineId Id="2248" Count="0" />
+      <LineId Id="1220" Count="0" />
+      <LineId Id="733" Count="0" />
+      <LineId Id="1216" Count="0" />
+      <LineId Id="1218" Count="0" />
+      <LineId Id="1217" Count="0" />
+      <LineId Id="744" Count="0" />
+      <LineId Id="924" Count="1" />
+      <LineId Id="745" Count="0" />
+      <LineId Id="886" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_InternalPowerSupply.ACPowerControl">
+      <LineId Id="9" Count="3" />
+      <LineId Id="219" Count="0" />
+      <LineId Id="73" Count="0" />
+      <LineId Id="75" Count="1" />
+      <LineId Id="135" Count="0" />
+      <LineId Id="137" Count="0" />
+      <LineId Id="20" Count="1" />
+      <LineId Id="240" Count="1" />
+      <LineId Id="139" Count="0" />
+      <LineId Id="148" Count="1" />
+      <LineId Id="242" Count="0" />
+      <LineId Id="124" Count="0" />
+      <LineId Id="32" Count="1" />
+      <LineId Id="125" Count="0" />
+      <LineId Id="36" Count="0" />
+      <LineId Id="59" Count="0" />
+      <LineId Id="212" Count="0" />
+      <LineId Id="126" Count="0" />
+      <LineId Id="61" Count="0" />
+      <LineId Id="232" Count="0" />
+      <LineId Id="50" Count="0" />
+      <LineId Id="128" Count="0" />
+      <LineId Id="233" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_InternalPowerSupply.DCPowerControl">
+      <LineId Id="22" Count="0" />
+      <LineId Id="60" Count="0" />
+      <LineId Id="82" Count="0" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="37" Count="0" />
+      <LineId Id="39" Count="0" />
+      <LineId Id="69" Count="0" />
+      <LineId Id="35" Count="0" />
+      <LineId Id="70" Count="0" />
+      <LineId Id="44" Count="3" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="49" Count="0" />
+      <LineId Id="48" Count="0" />
+      <LineId Id="42" Count="1" />
+    </LineIds>
+    <LineIds Name="FB_InternalPowerSupply.EMstop">
+      <LineId Id="5" Count="0" />
+      <LineId Id="25" Count="0" />
+      <LineId Id="34" Count="0" />
+      <LineId Id="27" Count="0" />
+      <LineId Id="26" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_InternalPowerSupply.GetDiagnostics">
+      <LineId Id="378" Count="1" />
+      <LineId Id="376" Count="1" />
+      <LineId Id="23" Count="0" />
+      <LineId Id="25" Count="19" />
+      <LineId Id="411" Count="7" />
+      <LineId Id="409" Count="1" />
+      <LineId Id="45" Count="5" />
+      <LineId Id="390" Count="0" />
+      <LineId Id="389" Count="0" />
+      <LineId Id="51" Count="9" />
+      <LineId Id="391" Count="0" />
+      <LineId Id="61" Count="3" />
+      <LineId Id="381" Count="7" />
+      <LineId Id="380" Count="0" />
+      <LineId Id="375" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_InternalPowerSupply.HVDCPowerControl">
+      <LineId Id="63" Count="0" />
+      <LineId Id="66" Count="0" />
+      <LineId Id="48" Count="0" />
+      <LineId Id="67" Count="2" />
+      <LineId Id="77" Count="0" />
+      <LineId Id="70" Count="0" />
+      <LineId Id="50" Count="0" />
+      <LineId Id="47" Count="0" />
+      <LineId Id="53" Count="0" />
+      <LineId Id="55" Count="1" />
+      <LineId Id="54" Count="0" />
+      <LineId Id="78" Count="0" />
+      <LineId Id="42" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_InternalPowerSupply.Reset">
+      <LineId Id="5" Count="1" />
+      <LineId Id="11" Count="0" />
+      <LineId Id="10" Count="0" />
+      <LineId Id="13" Count="0" />
+      <LineId Id="16" Count="0" />
+      <LineId Id="15" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_InternalPowerSupply.SystemShutdown">
+      <LineId Id="17" Count="0" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="20" Count="3" />
+      <LineId Id="18" Count="0" />
+      <LineId Id="24" Count="0" />
+      <LineId Id="29" Count="0" />
+      <LineId Id="36" Count="0" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="26" Count="0" />
+      <LineId Id="37" Count="0" />
+      <LineId Id="27" Count="0" />
+      <LineId Id="30" Count="0" />
+      <LineId Id="34" Count="0" />
+      <LineId Id="32" Count="0" />
+      <LineId Id="28" Count="0" />
+      <LineId Id="19" Count="0" />
+      <LineId Id="12" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

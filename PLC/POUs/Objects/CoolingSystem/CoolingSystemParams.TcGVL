@@ -1,0 +1,56 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <GVL Name="CoolingSystemParams" Id="{50e9927c-8ea6-4cc2-863b-d7b39bb15142}" ParameterList="True">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+VAR_GLOBAL CONSTANT
+	
+	//Main cooling regulation settings
+	PIDControlLimitMax: REAL := 10.0;
+	PIDControlLimitMin: REAL := 10.0;
+	PIDControlKfactor: 	REAL := 0.1;
+	PIDControlTn: 		TIME := T#1000MS;//Integral coefficient
+	PIDControlTv: 		TIME := T#0MS;//Derivative coefficient 
+	PIDControlTd: 		TIME := T#60S;//Damping time 
+	PIDLoopTime:		TIME := T#1000MS;//
+	
+	BattGoalTemp		: 	REAL := 18.0;
+	CoolantFullPowerTemperatureOffset: REAL := 1.5;
+	
+
+	EnclosureActiveTempMin: REAL := 10.0;
+	EnclosureActiveTempMax: REAL := 40.0;
+	
+	//setpoints for enclosure dehum
+	EnclosureDewPointGoal: REAL := 10.0;
+	EnclosureDewPointHysteresis: REAL := 2.0;
+	
+	EnclosureIdleTempMin: REAL := 10.0;
+	EnclosureIdleTempMax: REAL := 30.0;
+	
+	BatteryIdleTempMin	:	REAL	:=	15.0;
+	BatteryIdleTempMax	:	REAL	:=	20.0;
+	
+	HeatpumpInitSettings	: WORD := 0;
+	DoubleHeatpump			: BOOL := FALSE;
+	
+	//max temperature of the inverter components before cooling system can shutdown
+	EMSTOPInverterIdleShutdownTemp 		: REAL := 40;
+	//max temperature of the Battery components before cooling system can shutdown
+	EMSTOPBatteryShutdownTemp			: REAL := 25; 
+	
+	// Minimum base coolant pressure
+	MinimumSystemBasePressureWarningLevel	:	REAL :=	1.5;
+	MinimumSystemBasePressureErrorLevel		:	REAL :=	1;
+	// Minimum cooling system pressure increase with 24V pump running
+	StartupPumpMinimumPressure	:	REAL	:= 0.2;
+	// minimum cooling system pressure increase with main pump running
+	MainPumpMinimumPressure				:	REAL	:= 0.5;
+	
+	
+	MaximumValveOperatingTime	:	TIME := TIME#1000MS;
+
+
+END_VAR
+]]></Declaration>
+  </GVL>
+</TcPlcObject>

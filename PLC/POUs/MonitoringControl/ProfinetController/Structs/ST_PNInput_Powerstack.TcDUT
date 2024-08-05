@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_PNInput_Powerstack" Id="{002cddb8-88a4-48a9-83c2-8478e432f0e5}">
+    <Declaration><![CDATA[TYPE ST_PNInput_Powerstack :
+STRUCT
+	w_ControlBits			:	WORD;
+	w_GridMode				:	WORD;
+	w_PowerMode				:	WORD;	
+	ui_NominalVoltage		:	UINT;
+	ui_NominalFrequency		:	UINT;	
+	i_Pset					:	INT;
+	i_Qset					:	INT;
+	ui_PFset				:	UINT;
+	ui_FrequencyDroop		:	UINT;
+	ui_VoltageDroop			:	UINT;
+	ui_Pmax					:	UINT;
+	ui_Pmin					:	UINT;
+	ui_QMax					:	UINT;
+	ui_QMin					:	UINT;
+	ui_ACCurrentLimit		:	UINT;
+	ui_ApparentPowerLimit	:	UINT;
+	ui_PowerRampRate		:	UINT;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

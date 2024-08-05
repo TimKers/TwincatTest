@@ -1,0 +1,36 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_Heatpumpsystem_IO" Id="{7a4e1b72-b58e-4f70-9b55-6b847e83bdcf}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_Heatpumpsystem_IO
+VAR_INPUT
+	b_EnablePower	:	BOOL;
+END_VAR
+
+VAR_OUTPUT
+	PrimaryHeatpump_EnablePower	AT %Q* :	BOOL;
+	SecondaryHeatpump_EnablePower	AT %Q* :	BOOL;
+END_VAR
+VAR
+	PowerOnDelay: TON := (PT := TIME#100MS);
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+//heatpump 2 is enabled with a delay to limit inrush
+PrimaryHeatpump_EnablePower := b_EnablePower;
+IF CoolingSystemParams.DoubleHeatpump THEN
+	PowerOnDelay(IN := b_EnablePower);
+	SecondaryHeatpump_EnablePower := PowerOnDelay.Q;
+END_IF]]></ST>
+    </Implementation>
+    <LineIds Name="FB_Heatpumpsystem_IO">
+      <LineId Id="37" Count="0" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="42" Count="0" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="34" Count="0" />
+      <LineId Id="36" Count="0" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

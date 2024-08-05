@@ -1,0 +1,162 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="ErrorHandling" Id="{9abac5e5-24ea-4121-8054-d4bdb9302633}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM INTERNAL ErrorHandling
+VAR_INPUT
+	e_access					: eErrAckAccess;
+	AddError					: ARRAY [0..i_maxevents] OF FB_addErrorST;
+END_VAR
+
+VAR	
+	//Errorhandling
+	w_ErrorIndex				: WORD;
+	b_ClearEvents				: BOOL;	
+	b_ResetError				: BOOL;
+	(*ENUM*)
+	
+	//autoclear pulse
+	ton_AutoResetClear 						: TON :=(PT:= T#1S);
+	//Refresh Timer
+	ton_RefreshTimer						: TON := (PT:= T#10S);
+	b_refreshErrors							: BOOL;
+END_VAR
+
+VAR_OUTPUT
+	{ attribute 'TcHmiSymbol.ShowRecursively' }
+	a_ActiveEvents						: ARRAY [0..i_maxevents	] OF ST_ErrorStruct;
+	w_errorword							: WORD;
+	b_errorActive						: BOOL;
+END_VAR
+
+VAR CONSTANT
+	i_maxevents							: INT := 200;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[//Reset variables
+w_ErrorIndex 					:= 0;
+
+//RealtimeClock
+//SystemClock();
+
+//Autoreset signal
+ton_AutoResetClear(IN:= NOT(ton_AutoResetClear.Q));
+
+//EventLogger
+//fbAlarm(evtEntry := TC_Events.myWarningEventClass.Warning, bEvt:=b_event, bClear := b_Clear);
+
+//Refresh signal
+ton_RefreshTimer(IN:= NOT(ton_RefreshTimer.Q));
+b_RefreshErrors := ton_RefreshTimer.Q OR GVL.b_InitCycle;
+IF b_RefreshErrors THEN
+	GVL.b_WarningActive				:= FALSE;
+	GVL.b_NormalShutdownActive		:= FALSE;
+	GVL.b_QuickshutdownActive		:= FALSE;
+	GVL.b_EmergencyShutdownActive	:= FALSE;	
+
+//	Safety.GetDiagnostics(AddError:= AddError, a_ActiveEvents := a_ActiveEvents, w_index := w_errorindex);
+//	Main_Fast.PowerMonitor.GetDiagnostics(AddError:= AddError, a_ActiveEvents := a_ActiveEvents, w_index := w_errorindex);
+//	Main_Fast.InternalPowerSupply.GetDiagnostics(AddError:= AddError, a_ActiveEvents := a_ActiveEvents, w_index := w_errorindex);
+//	Main_Fast.NeutralTransformer.GetDiagnostics(AddError:= AddError, a_ActiveEvents := a_ActiveEvents, w_index := w_errorindex);
+//	Main_Fast.PowerStack.GetDiagnostics(AddError := AddError, a_ActiveEvents := a_ActiveEvents, w_index := w_errorindex);
+//Main_Fast.Protectionsystems.GetDiagnostics(AddError := AddError, a_ActiveEvents := a_ActiveEvents, w_index := w_errorindex);
+END_IF
+
+//If larger than 0, error is existing
+b_errorActive := GVL.b_NormalShutdownActive OR GVL.b_QuickshutdownActive OR GVL.b_EmergencyShutdownActive;
+
+]]></ST>
+    </Implementation>
+    <Method Name="LimitTrigger" Id="{1c3046c9-87f3-4772-bd4f-4b1e2b7e0a01}">
+      <Declaration><![CDATA[METHOD PUBLIC LimitTrigger
+VAR_INPUT
+	r_HighLimit				: REAL := 0;
+	r_HighWarning			: REAL := 0;
+	b_HighEnable			: BOOL := FALSE;
+	r_LowLimit				: REAL := 0;
+	r_LowWarning			: REAL := 0;
+	b_LowEnable				: BOOL := FALSE;
+	r_Hysteresis			: REAL := 0;
+END_VAR
+
+VAR_IN_OUT
+	r_In					: REAL;
+END_VAR
+
+VAR_OUTPUT
+	b_Warning				: BOOL;
+	b_Fault					: BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF b_HighEnable THEN
+	IF r_IN >= r_HighLimit THEN
+		b_Fault := TRUE;
+	ELSIF r_IN < (r_HighLimit - r_Hysteresis) THEN
+		b_fault := FALSE;
+	END_IF
+	IF r_IN >= r_HighWarning THEN
+		b_warning := TRUE;
+	ELSIF r_IN < (r_HighWarning - r_Hysteresis) THEN
+		b_warning := FALSE;
+	END_IF
+
+END_IF
+
+IF b_LowEnable THEN
+	IF r_IN <= r_LowLimit THEN
+		b_fault := TRUE;
+	ELSIF r_IN > (r_LowLimit + r_Hysteresis) THEN
+		b_fault := FALSE;
+	END_IF
+	IF r_IN <= r_LowWarning THEN
+		b_warning := TRUE;
+	ELSIF r_IN > (r_LowWarning + r_Hysteresis) THEN
+		b_warning:= FALSE;
+	END_IF
+END_IF
+
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="ErrorHandling">
+      <LineId Id="291" Count="0" />
+      <LineId Id="381" Count="0" />
+      <LineId Id="118" Count="5" />
+      <LineId Id="126" Count="2" />
+      <LineId Id="276" Count="0" />
+      <LineId Id="275" Count="0" />
+      <LineId Id="201" Count="0" />
+      <LineId Id="193" Count="0" />
+      <LineId Id="191" Count="0" />
+      <LineId Id="387" Count="2" />
+      <LineId Id="385" Count="1" />
+      <LineId Id="349" Count="0" />
+      <LineId Id="194" Count="0" />
+      <LineId Id="196" Count="2" />
+      <LineId Id="420" Count="0" />
+      <LineId Id="195" Count="0" />
+      <LineId Id="279" Count="0" />
+      <LineId Id="278" Count="0" />
+      <LineId Id="277" Count="0" />
+      <LineId Id="272" Count="0" />
+      <LineId Id="268" Count="0" />
+    </LineIds>
+    <LineIds Name="ErrorHandling.LimitTrigger">
+      <LineId Id="23" Count="0" />
+      <LineId Id="17" Count="4" />
+      <LineId Id="43" Count="3" />
+      <LineId Id="41" Count="1" />
+      <LineId Id="24" Count="0" />
+      <LineId Id="26" Count="0" />
+      <LineId Id="28" Count="5" />
+      <LineId Id="48" Count="3" />
+      <LineId Id="47" Count="0" />
+      <LineId Id="27" Count="0" />
+      <LineId Id="25" Count="0" />
+      <LineId Id="22" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

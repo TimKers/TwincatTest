@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_PNController_Get" Id="{7f12b5f7-277f-47e1-b270-a93471b568c7}">
+    <Declaration><![CDATA[TYPE ST_PNController_Get :
+STRUCT
+	eControllerStatus	:	e_ControllerStatus;
+	
+	events				:	ST_PNController_Events;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

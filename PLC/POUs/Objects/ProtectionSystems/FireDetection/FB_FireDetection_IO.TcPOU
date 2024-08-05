@@ -1,0 +1,99 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_FireDetection_IO" Id="{f75a0b26-1786-4ba5-9f05-d7980ac68f4a}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_FireDetection_IO
+
+VAR_OUTPUT
+	r_CODet1_value				: REAL;
+	r_CODet2_value				: REAL;
+	b_SmokeDetectorSignal_OK 	: BOOL;
+	b_SmokeDetectorPower_OK 	: BOOL;
+END_VAR
+
+VAR
+	SmokeDetPwr			AT %Q* 	: BOOL;	
+	SmokeDetSts			AT %I* 	: ARRAY[1..2] OF BOOL;
+	CO_read				AT %I*	: ARRAY [1..2] OF ST_COInputData;
+	SounderOut			AT %Q* 	: BOOL;	
+END_VAR
+
+VAR_INPUT
+	b_DisableSmokeDetectors		: BOOL;
+	b_SounderOn					: BOOL;
+END_VAR
+	]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+CO_detector_IO();
+Smoke_detector_IO();
+sounder_IO();
+]]></ST>
+    </Implementation>
+    <Method Name="CO_detector_IO" Id="{d3a9879a-6f6c-4056-bb43-8c6ee74e217a}">
+      <Declaration><![CDATA[METHOD CO_detector_IO : BOOL
+VAR
+	ScaleCOValue: FB_CTRL_SCALE;
+	COScaleParams: ST_CTRL_SCALE_PARAMS := (tTaskCycleTime := TIME#1ms, fInMin := 0, fInMax := 4095, fOutMax := 200.0);
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF CO_read[1].b_InputOverrange OR CO_read[1].b_InputUnderrange THEN
+	r_CODet1_value := -1;
+ELSE
+	//ScaleCOValue(fIn := CO_read[1].Value, stParams:= COScaleParams, fOut=>Get.CODetectors.CODetectorValue[1]);
+	r_CODet1_value := CO_read[1].w_Value/20.475;
+END_IF
+
+IF CO_read[2].b_InputOverrange OR CO_read[2].b_InputUnderrange THEN
+	r_CODet2_value := -1;
+ELSE
+	r_CODet2_value := CO_read[2].w_Value/20.475;
+	//ScaleCOValue(fIn := CO_read[2].Value, stParams:= COScaleParams, fOut=>Get.CODetectors.CODetectorValue[2]);
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Smoke_Detector_IO" Id="{2a921d36-be33-468a-98a3-8455a39ed75b}">
+      <Declaration><![CDATA[METHOD Smoke_Detector_IO : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[b_SmokeDetectorSignal_OK 	:= SmokeDetSts[1];
+b_SmokeDetectorPower_OK 	:= SmokeDetSts[2];
+
+SmokeDetPwr := b_DisableSmokeDetectors;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Sounder_IO" Id="{023ee572-7113-46f1-b8b9-ca52de2fba30}">
+      <Declaration><![CDATA[METHOD Sounder_IO : BOOL
+
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[SounderOut := SounderOn;]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_FireDetection_IO">
+      <LineId Id="10" Count="3" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_FireDetection_IO.CO_detector_IO">
+      <LineId Id="6" Count="3" />
+      <LineId Id="18" Count="0" />
+      <LineId Id="10" Count="4" />
+      <LineId Id="19" Count="0" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_FireDetection_IO.Smoke_Detector_IO">
+      <LineId Id="6" Count="0" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="8" Count="0" />
+      <LineId Id="7" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_FireDetection_IO.Sounder_IO">
+      <LineId Id="11" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

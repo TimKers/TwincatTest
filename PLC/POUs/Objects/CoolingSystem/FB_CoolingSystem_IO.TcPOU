@@ -1,0 +1,140 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_CoolingSystem_IO" Id="{ebb8c199-6485-481f-90e0-cc2169c528cd}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_CoolingSystem_IO
+VAR
+	Inputs							AT %I*	:	ST_CoolingSystemInputs;
+	Outputs							AT %Q* 	:	ST_CoolingSystemOutputs;
+	ControlData: INT;
+	ScalePressure: FB_CTRL_SCALE;
+	PressureScaleParams: ST_CTRL_SCALE_PARAMS := (tTaskCycleTime := TIME#1ms, tCtrlCycleTime := TIME#1ms, fInMin := 0, fInMax := 4095, fOutMin := 0, fOutMax := 10);
+	ScaleTemp: FB_CTRL_SCALE;
+	TempScaleParams: ST_CTRL_SCALE_PARAMS;
+	
+
+	BattValveDelayTimer: TP := (PT := CoolingSystemParams.MaximumValveOperatingTime);
+	FancoilValveDelayTimer: TP := (PT := CoolingSystemParams.MaximumValveOperatingTime);
+	InvValveDelayTimer: TP := (PT := CoolingSystemParams.MaximumValveOperatingTime);
+END_VAR
+
+VAR_IN_OUT
+	IO			:	ST_CoolingSystem_Control;
+	Events		: 	ST_CoolingSystemEvents; 
+END_VAR
+VAR
+	IdlePressureMeasurementDelay: ST_CoolingSystemEvents;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+
+//Convert and scale pressure sensor data
+{warning "TODO: FB_CTRLSCALE werkt nog niet"}
+IO.r_CoolantPressure := (INT_TO_REAL(Inputs.CoolingLoopPressureSensor)/409.6);
+//ScalePressure(fIn := Inputs.CoolingLoopPressureSensor, stParams:= PressureScaleParams, fOut=>IO.r_CoolantPressure);
+
+IF (NOT IO.b_ACPumpEnable) AND (NOT IO.b_DCPumpEnable) THEN
+	IO.r_CoolantIdlePressure := IO.r_CoolantPressure;
+END_IF
+
+//Cooling system pressure check. Lowest pressure will occur with pumps off.
+//if this dips below the minimum pressure, the system has lost coolant and should be fixed.
+Events.b_CoolingLoopIdlePressureWarning := (IO.r_CoolantPressure < CoolingSystemParams.MinimumSystemBasePressureWarningLevel);
+Events.b_CoolingLoopIdlePressureError 	:= (IO.r_CoolantPressure < CoolingSystemParams.MinimumSystemBasePressureErrorLevel);
+
+//Convert and scale coolant tank temperature data
+{warning "TODO: FB_CTRLSCALE werkt nog niet"}
+IO.r_CoolantTemperature := (INT_TO_REAL(Inputs.CoolingLoopTemperatureSensor)/40.96)-40;
+//ScalePressure(fIn := Inputs.CoolingLoopTemperatureSensor, stParams:= TempScaleParams, fOut=>IO.r_CoolantTemperature);
+
+//Pump control
+Outputs.ACPumpEnable := IO.b_ACPumpEnable;
+Outputs.DCPumpEnable := IO.b_DCPumpEnable;
+
+//FanControl
+Outputs.DCFanEnable := IO.b_DCFancoilEnable;
+
+
+//Battloop valve control
+//First set output and edge detectors. The edge detectors trigger a grace period in which the valve state is allowed to diverge from requested state
+Outputs.BattLoopValveClose := IO.b_CloseBatteryLoopValve;
+
+//Feedback is inverse from output. If they stay the same for too long --> Valve is stuck or inoperative
+IO.b_BatteryLoopEnabled := Inputs.BattLoopValveFB;
+BattValveDelayTimer(IN := IO.b_CloseBatteryLoopValve = Inputs.BattLoopValveFB);
+Events.b_BattLoopValveStuck := BattValveDelayTimer.Q;
+
+
+//Inverter loop valve control
+//First set output and edge detectors. The edge detectors trigger a grace period in which the valve state is allowed to diverge from requested state
+Outputs.InvLoopValveClose := IO.b_CloseInverterLoopValve;
+
+//Feedback is inverse from output. If they stay the same for too long --> Valve is stuck or inoperative
+IO.b_InverterLoopEnabled := Inputs.InvLoopValveFB;
+InvValveDelayTimer(IN := IO.b_CloseInverterLoopValve = Inputs.InvLoopValveFB);
+Events.b_InverterLoopValveStuck := InvValveDelayTimer.Q;
+
+
+//Fancoil loop valve control
+//First set output and edge detectors. The edge detectors trigger a grace period in which the valve state is allowed to diverge from requested state
+Outputs.FancoilLoopValveClose := IO.b_CloseFancoilLoopValve;
+
+//Feedback is inverse from output. If they stay the same for too long --> Valve is stuck or inoperative
+IO.b_FancoilLoopEnabled := Inputs.FancoilLoopValveFB;
+FancoilValveDelayTimer(IN := IO.b_CloseFancoilLoopValve = Inputs.FancoilLoopValveFB);
+Events.b_FancoilLoopValveStuck := FancoilValveDelayTimer.Q;
+
+
+
+
+//400V fuse feedback
+Events.b_CoolingSystemFuseFailure := NOT Inputs.CoolingSystem400VFuseFB;
+]]></ST>
+    </Implementation>
+    <LineIds Name="FB_CoolingSystem_IO">
+      <LineId Id="270" Count="0" />
+      <LineId Id="33" Count="0" />
+      <LineId Id="75" Count="0" />
+      <LineId Id="272" Count="0" />
+      <LineId Id="268" Count="0" />
+      <LineId Id="76" Count="0" />
+      <LineId Id="424" Count="2" />
+      <LineId Id="422" Count="0" />
+      <LineId Id="427" Count="4" />
+      <LineId Id="77" Count="1" />
+      <LineId Id="269" Count="0" />
+      <LineId Id="273" Count="0" />
+      <LineId Id="65" Count="0" />
+      <LineId Id="79" Count="0" />
+      <LineId Id="66" Count="1" />
+      <LineId Id="64" Count="0" />
+      <LineId Id="190" Count="0" />
+      <LineId Id="200" Count="0" />
+      <LineId Id="203" Count="0" />
+      <LineId Id="217" Count="0" />
+      <LineId Id="107" Count="0" />
+      <LineId Id="110" Count="2" />
+      <LineId Id="216" Count="0" />
+      <LineId Id="113" Count="0" />
+      <LineId Id="274" Count="0" />
+      <LineId Id="114" Count="0" />
+      <LineId Id="117" Count="5" />
+      <LineId Id="215" Count="0" />
+      <LineId Id="123" Count="0" />
+      <LineId Id="275" Count="0" />
+      <LineId Id="124" Count="0" />
+      <LineId Id="127" Count="5" />
+      <LineId Id="214" Count="0" />
+      <LineId Id="133" Count="0" />
+      <LineId Id="276" Count="0" />
+      <LineId Id="134" Count="0" />
+      <LineId Id="137" Count="0" />
+      <LineId Id="292" Count="1" />
+      <LineId Id="278" Count="0" />
+      <LineId Id="209" Count="0" />
+      <LineId Id="205" Count="0" />
+      <LineId Id="210" Count="0" />
+      <LineId Id="283" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="eNetcontactorState" Id="{d7e45cd4-ebde-43de-afdf-efd25a0b7d2d}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+{attribute 'to_string'}
+TYPE eNetcontactorState :
+(
+	Open 			:= 0,
+	RightClosed		:= 1,
+	LeftClosed		:= 2,
+	Fault			:= 4
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

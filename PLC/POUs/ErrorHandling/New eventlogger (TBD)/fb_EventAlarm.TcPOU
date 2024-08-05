@@ -1,0 +1,150 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="fb_EventAlarm" Id="{5b4e9757-7f02-45c4-b4e6-f25c9638f53a}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK fb_EventAlarm
+VAR_INPUT
+	bEvent 						: BOOL;
+	nEventID 					: eSeverity;
+	sAddString 					: STRING;
+END_VAR
+VAR_OUTPUT
+	bEventActive 				: BOOL;
+END_VAR
+VAR
+	bIsInitialized 				: BOOL;
+	
+	fbSourceINfo 				: FB_TcSourceInfo;
+	fbAlarm 					: FB_TcAlarm;
+	fbMessage 					: FB_TCMessage;
+	eventEntry 					: TcEventEntry;
+	fbRtEvent 					: R_Trig;
+	fbFtEvent 					: F_Trig;
+	
+	hr 							: HResult;
+	hrLastError 				: Hresult;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[//Initialization
+IF NOT bIsInitialized OR GVL.b_DeleteAllEvents THEN
+	
+	//Set eventEntry with the correct event type	
+	CASE nEventID OF
+	
+	eSeverity.Info:
+		eventEntry:= TC_EVENTS.myInfoEventClass.Info;
+		
+	eSeverity.Warning:
+		eventEntry:= TC_EVENTS.myWarningEventClass.Warning;
+		
+	eSeverity.NormalShutdown:
+		eventEntry:= TC_EVENTS.myErrorEventClass.Error;
+		
+	eSeverity.QuickShutdown:
+		eventEntry:= TC_EVENTS.myErrorEventClass.QuickShutdown;
+		
+	eSeverity.EmergencyShutdown:
+		eventEntry:= TC_EVENTS.myErrorEventClass.SafetyShutdown;
+	
+	END_CASE
+	
+	//Check if it's an alarm or warning/message
+	IF between(nEventID,0,2) THEN
+		IF NOT bIsInitialized THEN
+			fbAlarm.CreateEx(eventEntry,TRUE,0);//, ipSourceInfo:= fbsourceInfo);
+		END_IF
+		
+		IF GVL.b_DeleteAllEvents AND bEvent THEN
+			fbAlarm.ipArguments.Clear().AddString(sAddString);
+			hr:= fbAlarm.Raise(0);
+		END_IF	
+		
+		IF Failed(hr)THEN
+			hrLastError:= hr;
+		END_IF
+	
+	ELSE
+		IF NOT bIsInitialized THEN
+			fbMessage.CreateEx(eventEntry,0);//, ipSourceInfo:= fbsourceInfo);
+		END_IF
+		IF GVL.b_DeleteAllEvents AND bEvent THEN
+			fbMessage.ipArguments.Clear().AddString(sAddString);
+			hr:= fbMessage.Send(0);
+		END_IF	
+		
+		IF Failed(hr)THEN
+			hrLastError:= hr;
+		END_IF
+	END_IF
+	
+	bIsInitialized:=TRUE;
+END_IF
+
+//Event trigger
+fbRtEvent(clk:=bEvent);
+fbFtEvent(clk:=GVL.b_ClearEvents);
+
+//In case of alarms
+IF Between(nEventID,0,2) THEN
+
+	//Alarm Raised
+	IF fbRtEvent.Q THEN
+		fbAlarm.ipArguments.Clear().AddString(sAddString);
+		hr:= fbAlarm.Raise(0);
+		IF Failed(hr) THEN
+			hrLAstError:=hr;
+		END_IF
+	END_IF
+	
+	//Alarm Cleared
+	IF fbFtEvent.Q THEN
+		hr:= fbAlarm.Clear(0, bResetConfirmation:=TRUE);
+		IF Failed(hr) THEN
+			hrLAstError:=hr;
+		END_IF
+	END_IF
+
+//In case of warning/message	
+ELSE
+	IF fbRtEvent.Q THEN
+		fbMessage.ipArguments.Clear().AddString(sAddString);
+		hr:= fbmessage.Send(0);
+		IF Failed(hr) THEN
+			hrLAstError:=hr;
+		END_IF
+	END_IF
+END_IF	
+
+//Set output high when event is active
+bEventActive := bEvent;
+
+//Set Overall Alarm Check when Alarm Active
+IF bEventActive THEN
+	//Depending on EventID set Warning/Message Active
+	CASE nEventID OF
+	
+	eSeverity.Info:
+		GVL.b_OK_EventCheck:=TRUE;
+		
+	eSeverity.Warning:
+		GVL.b_Warning_EventCheck:=TRUE;
+		
+	eSeverity.NormalShutdown:
+		GVL.b_NormalShutdown_EventCheck:=TRUE;
+		
+	eSeverity.QuickShutdown:
+		GVL.b_QuickShutdown_EventCheck:=TRUE;
+		
+	eSeverity.EmergencyShutdown:
+		GVL.b_EmShutdown_EventCheck:=TRUE;
+	
+	END_CASE	
+END_IF]]></ST>
+    </Implementation>
+    <LineIds Name="fb_EventAlarm">
+      <LineId Id="482" Count="21" />
+      <LineId Id="506" Count="91" />
+      <LineId Id="266" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

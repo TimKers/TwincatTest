@@ -1,0 +1,567 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_CoolingSystem" Id="{f632dad5-0ddb-4b03-b8d0-21b7b8da0602}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_CoolingSystem
+
+VAR
+	ConditioningMode			:	eConditioningStates;
+	
+	ControlData					:	ST_CoolingSystem_Control;
+	ConditioningRequirements	:	ST_ConditioningRequirements;
+	
+	BatteryConditioningSFC		:	FB_BatteryConditioningSFC;
+	DehumSFC					:	FB_DehumidifySFC;
+	EnclosureConditioningSFC	:	FB_EnclosureConditioningSFC;
+	PowerModeConditioningSFC	:	FB_PowerModeConditioningSFC;
+	
+	Heatpumps					:	FB_HeatPumpSystem;
+	
+	FB_IO						:	FB_CoolingSystem_IO;
+END_VAR;
+
+VAR_OUTPUT
+	Get: ST_CoolingSystemGet;		//Various cooling sytem data for logging
+END_VAR
+
+VAR_IN_OUT
+//Inputs
+	//From Powerstack Inverter cooling request
+	by_SetCooling			:	BYTE;	//Inverter request cooling. 0=none, 1=startup only, 2=power delivery mode
+	b_InverterRunning		: 	BOOL;	//True if inverter is modulating, used as determine when pumps may shutdown
+	r_InverterTemperature	:	REAL;	//Inverter Internal temperature
+	r_InverterPowerLevel	:	REAL;	//Inverter output power (kVA/kW) to determine expected system heat generation
+	r_CMSTemperature		:	REAL;	//Combined CMS temperature
+	
+	//Internal power supply status
+	b_24v_Available			:	BOOL;	//from FB_ips, 24V online
+	b_400v_Available 		:	BOOL;	//from FB_ips, 400vac online
+
+	//From BMS
+	r_BMSAverageBattTemp	:	REAL;	//from FB_BMS, average battery temperature
+	r_BMSMaxBattTemp		:	REAL;	//from FB_BMS, max battery temperature (may not be needed)
+	
+	//From Enclosure
+	r_EnclosureHumidity		:	REAL;	//from FB_enclosure
+	r_EnclosureTemperature	:	REAL;	//from FB_enclosure
+	
+//Outputs
+	//To powerstack: 
+	by_PSCoolingPowerMode	: 	BYTE; 	//Allowed operating mode for inverter. 0: no modulating allowed, 1: modulating allowed, no power delivery, 2:inverter power delivery allowed.
+	IPSDemand : ST_PowerDemand;			//to FB_IPS, power requirements for cooling system
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[//Exchange external data into datastruct (for simpler passing around within the cooling system)
+by_PSCoolingPowerMode 					:= 	ConditioningRequirements.by_PSCoolingPowerMode;
+ConditioningRequirements.by_SetCooling 	:= 	by_SetCooling;
+ControlData.b_InverterRunning			:=	b_InverterRunning;
+ControlData.r_BMSBatteryTemperature 	:= 	r_BMSAverageBattTemp;
+ControlData.R_BMSMaxBatteryTemperature	:=	r_BMSMaxBattTemp;
+ControlData.r_EnclosureHumidity			:=	r_EnclosureHumidity;
+ControlData.r_EnclosureTemperature		:=	r_EnclosureTemperature;
+ControlData.r_InverterTemperature		:=	r_InverterTemperature;
+ControlData.r_OutputPowerLevel			:=	r_InverterPowerLevel;
+ControlData.b_24V_Available				:=	b_24V_Available;
+ControlData.b_400v_Available			:=	b_400V_Available;
+	
+//Call local IO functionblock	
+FB_IO(IO := ControlData, Events := get.Events);
+
+//Call standby climate monitors for Battery and enclosure 
+BatteryIdleMonitor(Control := ControlData, ConditioningRequirements := ConditioningRequirements);
+EnclosureIdleMonitor(Control := ControlData, ConditioningRequirements := ConditioningRequirements);
+
+//Determine which SFC to start, based on current status and priority. 
+SetConditioningMode();
+
+//Call climate control SFC's
+EnclosureConditioningSFC(IPSDemand := IPSDemand, Control := ControlData, ConditioningRequirements := ConditioningRequirements, Get := Get);
+BatteryConditioningSFC	(IPSDemand := IPSDemand, Control := ControlData, ConditioningRequirements := ConditioningRequirements, Get := Get);
+PowerModeConditioningSFC(IPSDemand := IPSDemand, Control := ControlData, ConditioningRequirements := ConditioningRequirements, Get := Get);
+DehumSFC				(IPSDemand := IPSDemand, Control := ControlData, ConditioningRequirements := ConditioningRequirements, Get := Get);
+
+//These only work as long as there is external 400VAC (as HVDC is shutdown). So no real need to shutdown imo.
+(*
+IF ConditioningMode = eConditioningStates.EMSTOP THEN
+	IF ControlData.r_InverterTemperature < CoolingSystemParams.EMSTOPInverterIdleShutdownTemp AND
+		ControlData.R_BMSMaxBatteryTemperature < CoolingSystemParams.EMSTOPBatteryShutdownTemp THEN
+			//Shutdown 24V coolingdown loop activated in EMSTOP method to prevent UPS battery drain
+			ControlData.b_DCPumpEnable 				:= FALSE;
+			ControlData.b_CloseInverterLoopValve	:= FALSE;
+			ControlData.b_CloseBatteryLoopValve 	:= FALSE;
+			ControlData.b_CloseFancoilLoopValve 	:= FALSE;
+	END_IF
+END_IF
+*)
+
+//Call Heatpump FB
+HeatPumps(b_EnablePower := ControlData.b_HeatPumpPowerEnable);
+get.HeatPumpSystemGet REF= Heatpumps.Get;
+Heatpumps.WriteSetpoint(OperatingMode := ControlData.e_HeatpumpMode, Setpoint := ControlData.r_HeatPumpSetpoint);
+get.HeatPumpStatus := get.HeatPumpSystemGet.HeatPumpStatus;
+
+]]></ST>
+    </Implementation>
+    <Method Name="BatteryIdleMonitor" Id="{010e8586-4841-46d7-b0b4-1ef78c16bad0}">
+      <Declaration><![CDATA[METHOD BatteryIdleMonitor : BOOL
+VAR_IN_OUT
+	Control 							:	ST_CoolingSystem_Control;
+	ConditioningRequirements 	: 	ST_ConditioningRequirements;
+END_VAR
+
+
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+//Battery cooling is triggered by the set Max temp. System then cools down to the midway point between Battery max and min.
+//Battery heating is triggered by the set Min temp. System then warms up to the midway point between Battery max and min.
+//Halfway points are chosen to limit Battery conditioning frequency
+
+CASE ConditioningRequirements.Battery OF
+	eConditioningRequirement.None:
+		IF Control.r_BMSBatteryTemperature > CoolingSystemParams.BatteryIdleTempMax THEN
+			ConditioningRequirements.Battery := eConditioningRequirement.Cooling;
+		ELSIF Control.r_BMSBatteryTemperature < CoolingSystemParams.BatteryIdleTempMin THEN
+			ConditioningRequirements.Battery := eConditioningRequirement.Heating;
+		END_IF
+		
+	eConditioningRequirement.Heating:
+		IF Control.r_BMSBatteryTemperature >= (CoolingSystemParams.BatteryIdleTempMin+CoolingSystemParams.BatteryIdleTempMax)/2 THEN
+			ConditioningRequirements.Battery := eConditioningRequirement.None;
+		END_IF
+		
+	eConditioningRequirement.Cooling:
+		IF Control.r_BMSBatteryTemperature <= (CoolingSystemParams.BatteryIdleTempMin+CoolingSystemParams.BatteryIdleTempMax)/2 THEN
+			ConditioningRequirements.Battery := eConditioningRequirement.None;
+		END_IF
+END_CASE
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="EMSTOP" Id="{0a1cf74e-7bbd-4307-817d-bceb907cdafe}">
+      <Declaration><![CDATA[METHOD EMSTOP : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+ConditioningMode := eConditioningStates.EMSTOP;
+
+EnclosureConditioningSFC.SFCEnable(Enable:= FALSE);
+BatteryConditioningSFC.SFCEnable(Enable:= FALSE);
+PowerModeConditioningSFC.SFCEnable(Enable:= FALSE);
+DehumSFC.SFCEnable(Enable:= FALSE);
+
+//Keep 24V cooling enabled
+ControlData.b_DCPumpEnable 				:= TRUE;
+ControlData.b_CloseInverterLoopValve	:= FALSE;
+ControlData.b_CloseBatteryLoopValve 	:= FALSE;
+ControlData.b_CloseFancoilLoopValve 	:= TRUE;
+
+ControlData.b_ACPumpEnable 				:= FALSE;
+ControlData.b_HeatPumpPowerEnable 		:= FALSE;
+
+
+ControlData.b_DCFancoilEnable 			:= FALSE;
+
+EMSTOP := Heatpumps.EMStop();]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="EnclosureIdleMonitor" Id="{0345a63e-5b4c-48af-90f2-d3c6f00ff48e}">
+      <Declaration><![CDATA[METHOD EnclosureIdleMonitor : BOOL
+VAR_IN_OUT
+	Control 							:	ST_CoolingSystem_Control;
+	ConditioningRequirements 	: 	ST_ConditioningRequirements;
+END_VAR
+
+VAR
+	alpha					: REAL;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+//Calculate system dewpoint
+alpha := LN(Control.r_EnclosureHumidity/100)+(17.625*Control.r_EnclosureTemperature/(243.12+Control.r_EnclosureTemperature));
+Control.r_CurrentEnclosureDewPoint := 243.12*alpha/(17.625-alpha);
+
+
+//Enclosure cooling is triggered by the set Max temp. System then cools down to the midway point between Enclosure max and Battery max.
+//Enclosure heating is triggered by the highest temp between Enclosure min and current dew point. The highest is used to compensate for high dewpoints.
+//Enclosure heating is done if the halfwaypoint between battery temp min and enclosure temp min.
+//Halfway points are chosen to prevent prolonged conditioning runs
+CASE ConditioningRequirements.Enclosure OF
+	eConditioningRequirement.None:
+		IF Control.r_EnclosureTemperature > CoolingSystemParams.EnclosureIdleTempMax THEN
+			ConditioningRequirements.Enclosure := eConditioningRequirement.Cooling;
+		ELSIF Control.r_EnclosureTemperature < MAX(CoolingSystemParams.EnclosureIdleTempMin, Control.r_CurrentEnclosureDewPoint) THEN
+			ConditioningRequirements.Enclosure := eConditioningRequirement.Heating;
+		END_IF
+		
+	eConditioningRequirement.Heating:
+		IF Control.r_EnclosureTemperature < (CoolingSystemParams.EnclosureIdleTempMin+CoolingSystemParams.BatteryIdleTempMin)/2 THEN
+			ConditioningRequirements.Enclosure := eConditioningRequirement.None;
+		END_IF
+		
+	eConditioningRequirement.Cooling:
+		IF Control.r_EnclosureTemperature < (CoolingSystemParams.EnclosureIdleTempMax+CoolingSystemParams.BatteryIdleTempMax)/2 THEN
+			ConditioningRequirements.Enclosure := eConditioningRequirement.None;
+		END_IF
+END_CASE
+
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="GetDiagnostics" Id="{0f3312c0-95d5-40c2-9540-1c389d23f92f}">
+      <Declaration><![CDATA[METHOD GetDiagnostics 
+VAR_IN_OUT
+	AddError		: ARRAY [*] OF FB_AddErrorST;
+	a_ActiveEvents	: ARRAY [*] OF ST_ErrorStruct;
+	w_Index			: WORD;
+END_VAR
+
+VAR_OUTPUT
+	b_errorActive	: BOOL;
+	b_warningActive	: BOOL;
+END_VAR
+
+VAR
+	by_errCt	: BYTE;
+	by_warnCt	: BYTE;
+	w_ID		: WORD;
+END_VAR
+
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[	(*Battery loop valve stuck*)	AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_BattLoopValveStuck,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 1 + w_ID,
+			s_Message				:= 'Battery cooling loop valve fault',
+			e_sev					:= eSeverity.NormalShutdown,	
+			in_b_AutoClear			:= FALSE,
+			//in_e_ErrAckAccess		:= TRUE,
+			);
+		IF AddError[w_Index].b_out THEN by_errCt := by_errCt + 1; END_IF;
+		w_Index := w_Index +1;
+		
+	(*Fancoil loop valve stuck*)	AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_BattLoopValveStuck,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 2 + w_ID,
+			s_Message				:= 'Fancoil cooling loop valve fault',
+			e_sev					:= eSeverity.NormalShutdown,	
+			in_b_AutoClear			:= FALSE,
+			//in_e_ErrAckAccess		:= TRUE,
+			);
+		IF AddError[w_Index].b_out THEN by_errCt := by_errCt + 1; END_IF;
+		w_Index := w_Index +1;
+	
+	(*Inverter loop valve stuck*)	AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_InverterLoopValveStuck,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 3 + w_ID,
+			s_Message				:= 'Inverter cooling loop valve fault',
+			e_sev					:= eSeverity.QuickShutdown,	
+			in_b_AutoClear			:= FALSE,
+			//in_e_ErrAckAccess		:= TRUE,
+			);
+		IF AddError[w_Index].b_out THEN by_errCt := by_errCt + 1; END_IF;
+		w_Index := w_Index +1;
+		
+	(*Inverter cooling error*)	AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_InverterCoolingLoopError,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 4 + w_ID,
+			s_Message				:= 'Inverter cooling loop failed',
+			e_sev					:= eSeverity.QuickShutdown,	
+			in_b_AutoClear			:= FALSE,
+			//in_e_ErrAckAccess		:= TRUE,
+			);
+		IF AddError[w_Index].b_out THEN by_errCt := by_errCt + 1; END_IF;
+		w_Index := w_Index +1;
+		
+	(*Heatpump Warning*)		AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_HeatpumpWarning,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 5 + w_ID,
+			s_Message				:= 'Heatpump warning',
+			e_sev					:= eSeverity.Warning,	
+			in_b_AutoClear			:= FALSE,
+			//in_e_ErrAckAccess		:= TRUE,
+			);
+		IF AddError[w_Index].b_out THEN by_warnCt := by_warnCt + 1; END_IF;
+		w_Index := w_Index +1;		
+	
+	(*Heatpump inoperative*)		AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_HeatPumpError ,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 6 + w_ID,
+			s_Message				:= 'Heatpump inoperative',
+			e_sev					:= eSeverity.NormalShutdown,	
+			in_b_AutoClear			:= FALSE,
+			//in_e_ErrAckAccess		:= TRUE,
+			);
+		IF AddError[w_Index].b_out THEN by_errCt := by_errCt + 1; END_IF;
+		w_Index := w_Index +1;
+		
+	(*400V fuse failure*)			AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_CoolingSystemFuseFailure,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 7 + w_ID,
+			s_Message				:= 'Cooling system 400V fuse fault',
+			e_sev					:= eSeverity.QuickShutdown,	
+			in_b_AutoClear			:= FALSE,
+			//in_e_ErrAckAccess		:= TRUE,
+			);
+		IF AddError[w_Index].b_out THEN by_errCt := by_errCt + 1; END_IF;
+		w_Index := w_Index +1;
+		
+	(*Coolant pressure lost*)		AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_CoolingLoopIdlePressureError,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 8 + w_ID,
+			s_Message				:= 'Cooling system pressure fault',
+			e_sev					:= eSeverity.NormalShutdown,	
+			in_b_AutoClear			:= FALSE,
+			//in_e_ErrAckAccess		:= TRUE,
+			);
+		IF AddError[w_Index].b_out THEN by_errCt := by_errCt + 1; END_IF;
+		w_Index := w_Index +1;	
+	
+	(*Coolant pressure low*)		AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_CoolingLoopIdlePressureWarning,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 9 + w_ID,
+			s_Message				:= 'Cooling system pressure warning',
+			e_sev					:= eSeverity.Warning,	
+			in_b_AutoClear			:= FALSE,
+			//in_e_ErrAckAccess		:= TRUE,
+			);
+		IF AddError[w_Index].b_out THEN by_WarnCt := by_WarnCt + 1; END_IF;
+		w_Index := w_Index +1;	
+
+		
+		
+//check if this call works:
+Heatpumps.GetDiagnostics(AddError := AddError, a_ActiveEvents := a_ActiveEvents, w_Index := w_Index, b_errorActive => b_errorActive, b_warningActive => b_warningActive);
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ProcessOutputData" Id="{d50506da-0583-44ff-9374-14007b600f1f}">
+      <Declaration><![CDATA[METHOD ProcessOutputData : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Reset" Id="{666f681c-4cc6-4403-8d16-3eb3d9da41f9}">
+      <Declaration><![CDATA[METHOD Reset : BOOL
+VAR
+	b_ActiveErrors		:	BOOL;
+	b_ActiveWarnings	:	BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[Reset := FALSE;
+
+//Set in SFC, but will not self clear. Reset at this point. It will fail again when restarting
+//No way of testing it prior to that point
+get.Events.b_InverterCoolingLoopError := FALSE;
+
+
+b_ActiveErrors := 	Get.Events.b_BattLoopValveStuck OR
+					Get.Events.b_CoolingLoopIdlePressureError OR
+					Get.Events.b_InverterCoolingLoopError OR
+					Get.Events.b_CoolingSystemFuseFailure OR
+					Get.Events.b_FancoilLoopValveStuck OR
+					Get.Events.b_HeatPumpError OR
+					Get.Events.b_InverterLoopValveStuck;
+
+IF NOT b_ActiveErrors THEN
+	IF ConditioningMode = eConditioningStates.EMSTOP THEN
+		ConditioningMode := eConditioningStates.OFF;
+	END_IF
+	
+	Reset := Heatpumps.Reset();
+END_IF;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SetConditioningMode" Id="{ff2a88bc-df5f-43b8-bbed-0b785414a837}">
+      <Declaration><![CDATA[METHOD SetConditioningMode : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF ConditioningMode <> eConditioningStates.EMSTOP THEN
+	//Determine which SFC should be active, halt all others.
+	IF (ConditioningRequirements.by_SetCooling = 2) OR (PowerModeConditioningSFC.SFCActive) THEN
+		ConditioningMode := eConditioningStates.InverterPowerMode;		
+	ELSIF (ConditioningRequirements.Battery <> eConditioningRequirement.None) OR (BatteryConditioningSFC.SFCActive) THEN
+		ConditioningMode := eConditioningStates.BatteryConditioning;
+	ELSIF ConditioningRequirements.Dehum OR (DehumSFC.SFCActive) THEN
+		ConditioningMode := eConditioningStates.DeHum;
+	ELSIF ConditioningRequirements.by_setCooling = 1	THEN
+		//If this is true, no AC conditioning mode is required but the inverter is still asking for low power cooling. This is ZPTinit mode
+		//After executing this code once, the next iterations will run the first if statement until finished 
+		ConditioningMode := eConditioningStates.InverterZPTStartup;
+	ELSIF ConditioningRequirements.Enclosure <> eConditioningRequirement.None  OR (EnclosureConditioningSFC.SFCActive) THEN
+		ConditioningMode := eConditioningStates.EnclosureConditioning;
+	ELSE
+		ConditioningMode := eConditioningStates.OFF;
+	END_IF
+END_IF
+
+//SFC stuck in Init=true unless that conditioningmode is active
+BatteryConditioningSFC.SFCEnable(Enable:= (ConditioningMode = eConditioningStates.BatteryConditioning));
+DehumSFC.SFCEnable(Enable:=  (ConditioningMode = eConditioningStates.DeHum));
+EnclosureConditioningSFC.SFCEnable(Enable:=  (ConditioningMode = eConditioningStates.EnclosureConditioning));
+PowerModeConditioningSFC.SFCEnable(Enable:=  ((ConditioningMode = eConditioningStates.InverterPowerMode ) OR
+									   		(ConditioningMode = eConditioningStates.InverterZPTStartup) ));]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_CoolingSystem">
+      <LineId Id="1484" Count="2" />
+      <LineId Id="1648" Count="0" />
+      <LineId Id="1487" Count="0" />
+      <LineId Id="1546" Count="0" />
+      <LineId Id="1536" Count="1" />
+      <LineId Id="1545" Count="0" />
+      <LineId Id="1488" Count="0" />
+      <LineId Id="1653" Count="1" />
+      <LineId Id="1549" Count="0" />
+      <LineId Id="1489" Count="5" />
+      <LineId Id="1736" Count="0" />
+      <LineId Id="1495" Count="0" />
+      <LineId Id="1519" Count="6" />
+      <LineId Id="1734" Count="0" />
+      <LineId Id="1732" Count="0" />
+      <LineId Id="1570" Count="0" />
+      <LineId Id="1531" Count="0" />
+      <LineId Id="1554" Count="0" />
+      <LineId Id="1556" Count="0" />
+      <LineId Id="1569" Count="0" />
+      <LineId Id="1559" Count="3" />
+      <LineId Id="1557" Count="0" />
+      <LineId Id="1555" Count="0" />
+      <LineId Id="1733" Count="0" />
+      <LineId Id="1532" Count="0" />
+      <LineId Id="1727" Count="1" />
+      <LineId Id="1726" Count="0" />
+      <LineId Id="1730" Count="0" />
+      <LineId Id="1533" Count="0" />
+      <LineId Id="1742" Count="0" />
+      <LineId Id="1572" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CoolingSystem.BatteryIdleMonitor">
+      <LineId Id="11" Count="2" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="43" Count="0" />
+      <LineId Id="16" Count="17" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CoolingSystem.EMSTOP">
+      <LineId Id="12" Count="0" />
+      <LineId Id="8" Count="0" />
+      <LineId Id="13" Count="0" />
+      <LineId Id="9" Count="2" />
+      <LineId Id="6" Count="0" />
+      <LineId Id="30" Count="0" />
+      <LineId Id="14" Count="0" />
+      <LineId Id="16" Count="0" />
+      <LineId Id="27" Count="1" />
+      <LineId Id="26" Count="0" />
+      <LineId Id="25" Count="0" />
+      <LineId Id="24" Count="0" />
+      <LineId Id="20" Count="0" />
+      <LineId Id="23" Count="0" />
+      <LineId Id="19" Count="0" />
+      <LineId Id="18" Count="0" />
+      <LineId Id="7" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CoolingSystem.EnclosureIdleMonitor">
+      <LineId Id="243" Count="0" />
+      <LineId Id="245" Count="1" />
+      <LineId Id="244" Count="0" />
+      <LineId Id="247" Count="0" />
+      <LineId Id="176" Count="0" />
+      <LineId Id="115" Count="0" />
+      <LineId Id="177" Count="2" />
+      <LineId Id="214" Count="0" />
+      <LineId Id="217" Count="0" />
+      <LineId Id="220" Count="1" />
+      <LineId Id="223" Count="1" />
+      <LineId Id="222" Count="0" />
+      <LineId Id="234" Count="0" />
+      <LineId Id="225" Count="4" />
+      <LineId Id="231" Count="2" />
+      <LineId Id="230" Count="0" />
+      <LineId Id="218" Count="0" />
+      <LineId Id="20" Count="1" />
+      <LineId Id="114" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CoolingSystem.GetDiagnostics">
+      <LineId Id="25" Count="1" />
+      <LineId Id="401" Count="0" />
+      <LineId Id="28" Count="3" />
+      <LineId Id="33" Count="4" />
+      <LineId Id="402" Count="8" />
+      <LineId Id="48" Count="2" />
+      <LineId Id="411" Count="9" />
+      <LineId Id="62" Count="0" />
+      <LineId Id="513" Count="0" />
+      <LineId Id="515" Count="9" />
+      <LineId Id="514" Count="0" />
+      <LineId Id="63" Count="0" />
+      <LineId Id="479" Count="9" />
+      <LineId Id="477" Count="1" />
+      <LineId Id="421" Count="9" />
+      <LineId Id="75" Count="0" />
+      <LineId Id="431" Count="0" />
+      <LineId Id="434" Count="9" />
+      <LineId Id="433" Count="0" />
+      <LineId Id="444" Count="0" />
+      <LineId Id="446" Count="9" />
+      <LineId Id="445" Count="0" />
+      <LineId Id="489" Count="0" />
+      <LineId Id="501" Count="9" />
+      <LineId Id="490" Count="0" />
+      <LineId Id="511" Count="0" />
+      <LineId Id="456" Count="0" />
+      <LineId Id="512" Count="0" />
+      <LineId Id="457" Count="1" />
+      <LineId Id="432" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CoolingSystem.ProcessOutputData">
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CoolingSystem.Reset">
+      <LineId Id="27" Count="0" />
+      <LineId Id="39" Count="0" />
+      <LineId Id="35" Count="0" />
+      <LineId Id="40" Count="0" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="34" Count="0" />
+      <LineId Id="12" Count="0" />
+      <LineId Id="11" Count="0" />
+      <LineId Id="17" Count="0" />
+      <LineId Id="33" Count="0" />
+      <LineId Id="18" Count="0" />
+      <LineId Id="20" Count="1" />
+      <LineId Id="19" Count="0" />
+      <LineId Id="22" Count="0" />
+      <LineId Id="8" Count="0" />
+      <LineId Id="7" Count="0" />
+      <LineId Id="9" Count="1" />
+      <LineId Id="14" Count="0" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="25" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_CoolingSystem.SetConditioningMode">
+      <LineId Id="6" Count="23" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

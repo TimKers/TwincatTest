@@ -1,0 +1,42 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="st_Powerstack_get" Id="{957af0e4-68d1-4278-a713-6d1769f6b40e}">
+    <Declaration><![CDATA[TYPE ST_PowerStack_get :
+STRUCT
+	// READ
+//	e_InverterMode					: eInverterModes;			//0=AFE, Micro, Island, transition
+//	e_PowerMode						: ePowerModes;				//0=IsoChronous, 1= Droop
+	r_VoltageDroop					: REAL;				
+	r_FrequencyDroop				: REAL;
+	r_NominalD7Voltage				: REAL; 
+	r_NominalD7Frequency			: REAL; 
+	r_ActivePower					: REAL; 
+	r_ReactivePower					: REAL; 
+	r_MaxChargePower				: REAL;
+	r_MaxDischargePower				: REAL; 
+	r_MaxCurrentAC					: REAL;
+	r_PowerChangeRate				: REAL;
+	r_ApparentPower					: REAL;
+	r_CosPhi						: REAL;
+	r_AcCurrent						: REAL;
+	r_DCPower						: REAL;
+	r_DCVoltage						: REAL;
+	r_DCcurrent						: REAL;
+	r_ACSupplyVoltage				: REAL;
+	r_ACSupplyFrequency				: REAL;
+	r_LoadPercentage				: REAL; //%
+	r_RatedCurrent					: REAL;
+	r_RatedPower					: REAL;
+//	e_Status						: eStatus;
+	e_NetContactorStatus			: eNetContactorState;
+	
+	b_CoolingRequest				: BOOL; //0=off, 1=on
+	b_HVDCRequest					: BOOL; //0=off, 1=on
+	//Temperature structure per powermodule toevoegen
+//	Faults							: ST_PowerStackFaults;
+	
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="eConditioningStates" Id="{3d9938d8-59c8-4bba-9c8e-5ac8a873a19e}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE eConditioningStates :
+(
+	OFF 						:= 	0,
+	EnclosureConditioning 		:= 	1,
+	InverterZPTStartup 			:= 	2,
+	BatteryConditioning 		:= 	3,
+	DeHum 						:= 	4,
+	InverterPowerMode 			:= 	5,
+	EMSTOP						:=	6
+)uint := OFF;
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

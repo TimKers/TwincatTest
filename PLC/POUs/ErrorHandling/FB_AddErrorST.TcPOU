@@ -1,0 +1,97 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_AddErrorST" Id="{818df45c-3c28-41f4-9ded-b5b62e784f1b}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_AddErrorST
+VAR_INPUT
+	in_b_ErrorTrig				: BOOL;
+	in_t_TriggerTime			: TIME := T#0S;
+	in_b_AutoClear				: BOOL := FALSE;
+	in_e_ErrAckAccess			: eErrAckAccess := eErrAckAccess.VDL; //default full access required
+	w_ID						: WORD;
+	s_message					: STRING;
+	e_sev						: eSeverity;
+END_VAR
+VAR_IN_OUT
+	out_st_Error 				: ST_ErrorStruct;
+END_VAR
+
+VAR_OUTPUT
+	b_out						: BOOL;
+END_VAR
+
+VAR
+	sr_ErrorActive				: SR;
+	bIsInitialized 				: BOOL := FALSE;	
+	ton_FaultTriggerTime		: TON;
+	rTRIG_Fault					: R_TRIG;
+	fTRIG_Fault					: F_TRIG;
+	rTRIG_Clear					: R_TRIG;
+	
+	
+	i_Counter				: INT; 
+END_VAR
+
+
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF NOT bIsInitialized THEN
+    // The code that you want to be executed at the first cycle
+		out_st_Error.s_ID		:= TO_STRING(w_ID);	
+		out_st_Error.s_Message	:= TO_STRING(s_Message);
+		out_st_Error.s_Severity	:= TO_STRING(e_Sev);
+END_IF
+
+ton_FaultTriggerTime(IN:= in_b_ErrorTrig, PT:= in_t_TriggerTime);
+sr_ErrorActive(SET1:= ton_FaultTriggerTime.Q, Q1=>out_st_error.b_ErrorActive);
+b_out := sr_ErrorActive.Q1;
+
+sr_ErrorActive.RESET := SEL( errorhandling.e_access>=in_e_ErrAckAccess,0,Errorhandling.b_ResetError);
+
+CASE e_sev OF
+		eSeverity.Warning 			: GVL.b_WarningActive := b_out;
+		eSeverity.Normalshutdown 	: GVL.b_NormalshutdownActive := b_out;
+		eSeverity.Quickshutdown 	: GVL.b_QuickShutdownActive := b_out;
+		eSeverity.EmergencyShutdown	: GVL.b_EmergencyShutdownActive := b_out;
+END_CASE
+
+
+//CLEARING EVENTS
+rTRIG_Fault(CLK:= b_out);
+fTRIG_Fault(CLK:= b_out);
+rTRIG_Clear(CLK:= ErrorHandling.b_ClearEvents OR SEL(in_b_autoClear,FALSE, errorhandling.ton_AutoResetClear.Q) );
+
+IF rTRIG_Clear.Q AND NOT b_out THEN
+	out_st_Error.s_DateError 	:= '';
+	out_st_Error.s_TimeError 	:= '';
+	out_st_Error.s_TimeCleared	:= '';
+END_IF
+
+IF rTRIG_Fault.Q THEN
+	out_st_Error.s_DateError := GVL.s_SystemDate;
+	out_st_Error.s_TimeError := GVL.s_SystemTime;
+	out_st_Error.s_TimeCleared	:= '';
+	
+ELSIF fTrig_Fault.Q THEN
+	out_st_Error.s_TimeCleared	:= GVL.s_SystemTime;
+END_IF
+
+bIsInitialized := TRUE;]]></ST>
+    </Implementation>
+    <LineIds Name="FB_AddErrorST">
+      <LineId Id="307" Count="5" />
+      <LineId Id="346" Count="0" />
+      <LineId Id="344" Count="0" />
+      <LineId Id="343" Count="0" />
+      <LineId Id="315" Count="0" />
+      <LineId Id="451" Count="0" />
+      <LineId Id="321" Count="1" />
+      <LineId Id="506" Count="4" />
+      <LineId Id="505" Count="0" />
+      <LineId Id="503" Count="1" />
+      <LineId Id="323" Count="14" />
+      <LineId Id="373" Count="0" />
+      <LineId Id="338" Count="3" />
+      <LineId Id="75" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

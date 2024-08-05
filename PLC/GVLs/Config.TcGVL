@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <GVL Name="Config" Id="{f61fbb2c-d076-4a70-8e79-62a2aef4a729}" ParameterList="True">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+VAR_GLOBAL CONSTANT
+	b_DoublePowerModule				: BOOL := FALSE;
+	b_PeakshaverBoxEnable			: BOOL := TRUE;
+	b_NeutralTransformer			: BOOL := TRUE;
+	
+	//Netcontactor
+	b_AutomaticACrotation			: BOOL := TRUE;
+	b_DoubleHeatpump: BOOL := FALSE;
+	
+	IP_BMS	:	STRING(16) := '192.168.1.61';
+	MBPort_BMS : UINT := 502;
+	
+	IP_JANITZA: STRING(16) := '192.168.1.10';
+	MBPort_Janitza : UINT := 502;
+
+	IP_Teltonika: STRING(16) := '192.168.1.1';
+	MBPort_Teltonika : UINT := 502;
+
+	
+
+END_VAR]]></Declaration>
+  </GVL>
+</TcPlcObject>

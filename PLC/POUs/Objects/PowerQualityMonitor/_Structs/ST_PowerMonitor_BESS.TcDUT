@@ -1,0 +1,39 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_PowerMonitor_BESS" Id="{94f92550-7f00-4e47-bf83-227c63692e2c}">
+    <Declaration><![CDATA[TYPE ST_PowerMonitor_BESS :
+STRUCT
+	r_Current					:	ARRAY[0..4] OF REAL;
+	
+	//Power
+	r_ApparentPower		: 	REAL;
+	r_ReactivePower		: 	REAL;
+	r_ActivePower		: 	REAL;
+	
+	//Power
+	r_ApparentPhasePower	: 	ARRAY[0..3] OF REAL;
+	r_ReactivePhasePower	: 	ARRAY[0..3] OF REAL;
+	r_ActivePhasePower		: 	ARRAY[0..3] OF REAL;
+	
+	//Energy Consumed
+	r_EnergyConsumed		:	REAL;
+	
+	//Energy Delivered
+	r_EnergySupplied		:	REAL;
+	
+	r_THD						:	ARRAY[0..3] OF REAL;
+	r_PowerFactor 				:	ARRAY[0..3] OF REAL;
+	r_Frequency					: 	REAL;
+
+	//--//Overcurrent quicklog
+	b_OvercurrentDetected		:	BOOL; //general Flag
+	w_OvercurrentPhases			:	WORD; // first 4 bits (OUT1: L1/L2/L3/N)
+	ui_OvercurrentCount			: 	UINT;
+	t_LastOverCurrentTimeStap	:	TIME;
+	r_LastOvercurrentDuration	:	REAL;
+	t_MaxOvercurrentTimestamp	:	TIME;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

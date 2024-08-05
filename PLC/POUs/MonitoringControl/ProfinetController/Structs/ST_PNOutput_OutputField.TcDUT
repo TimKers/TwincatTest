@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_PNOutput_OutputField" Id="{049f9c24-aeb2-49bc-8a5b-b602605bfa85}">
+    <Declaration><![CDATA[TYPE ST_PNOutput_OutputField :
+STRUCT
+	w_Status						:	WORD;
+	w_Warnings						:	WORD;
+	w_Faults						:	WORD;
+	
+	i_ActivePower				:	INT;
+	i_ReactivePower				:	INT;
+	ui_Frequency				:	UINT;
+	ui_VoltageL1N				:	UINT;
+	ui_VoltageL2N				:	UINT;
+	ui_VoltageL3N				:	UINT;
+	ui_VoltageL1L2				:	UINT;
+	ui_VoltageL2L3				:	UINT;
+	ui_VoltageL3L1				:	UINT;
+	i_CurrentL1					:	INT;
+	i_CurrentL2					:	INT;
+	i_CurrentL3					:	INT;
+	i_CurrentN					:	INT;
+	ui_TotalEnergySupplied_high :	UINT;
+	ui_TotalEnergySupplied_Low 	:	UINT;
+	ui_TotalEnergyConsumed_high :	UINT;
+	ui_TotalEnergyConsumed_low 	:	UINT;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

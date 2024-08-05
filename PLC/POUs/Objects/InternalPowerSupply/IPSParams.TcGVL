@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <GVL Name="IPSParams" Id="{c3940d14-7a7e-4eaa-9944-8719d306e5f1}" ParameterList="True">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+VAR_GLOBAL CONSTANT
+	IntZPTStartupDelay: TIME := TIME#100MS;
+	ACStartupDelay : TIME := TIME#100MS;
+	DCPSU_StartupDelay: TIME := TIME#500MS;
+	ACPSU_StartupDelay: TIME := TIME#500MS;
+	//trigger level before Battery low error is issued. 
+	//UPS battery dangerously low
+	usi_UPSBattLowErrorSOC		:	USINT 	:= 20;
+	//UPS charging request was apparently denied. System should shutdown? 
+	usi_UPSBattLowwarningSOC	:	USINT 	:= 40;
+	//trigger level before Battery low warning is issued and UPS charging is requested from Internal power supply
+	usi_UPSBattLowinfoSOC		:	USINT	:= 60;	
+	//r_SOC level at which UPS charging is no longer requested so HVDC can be shutdown.
+	usi_UPSBattOKSOC 			:	USINT	:= 90;
+END_VAR]]></Declaration>
+  </GVL>
+</TcPlcObject>

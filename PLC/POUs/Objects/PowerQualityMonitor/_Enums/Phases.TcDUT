@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="Phases" Id="{770e8f53-68a6-48fa-bd79-d181d65963b2}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE Phases :
+(
+	AVG := 0,
+	L1	:=	1,
+	L2	:=	3,
+	L3	:=	2,
+	N	:=	4
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

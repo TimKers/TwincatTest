@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="st_LedColor" Id="{cf51e43a-f82e-4d52-809a-bcd13802b961}">
+    <Declaration><![CDATA[TYPE st_LedColor :
+STRUCT
+	by_Red		:	BYTE;
+	by_Green	:	BYTE;
+	by_Blue		:	BYTE;
+	by_White	:	BYTE;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

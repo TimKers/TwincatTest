@@ -1,0 +1,89 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_InternalPowerSupply_IO" Id="{14a37718-20e2-4b4a-9114-4d8672574bf3}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_InternalPowerSupply_IO
+VAR
+	b_Write					AT %Q* : ARRAY[1..3] OF BOOL;	
+	b_Read					AT %I* : ARRAY[1..5] OF BOOL;
+END_VAR
+
+VAR_INPUT
+	// 0: No AC, 1: Grid AC, 2: CEE AC
+	SetACConnectionMode: BYTE := 0;
+	b_InternalHVDCConnected : BOOL := FALSE;
+END_VAR
+
+VAR_OUTPUT
+	DCPSU_OK: BOOL;
+	ACPSU_OK: BOOL;
+	GridFuseOK: BOOL;
+	CeeFuseOK: BOOL;
+	CEE_ACAvailable: BOOL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[read();
+write();
+
+]]></ST>
+    </Implementation>
+    <Method Name="Read" Id="{3abfc194-ebd1-4f08-a32f-1db20681e61e}">
+      <Declaration><![CDATA[METHOD PRIVATE Read : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[DCPSU_OK := b_read[1];
+ACPSU_OK := b_read[2];
+GridFuseOK := b_read[3];
+CeeFuseOK := b_read[4];
+CEE_ACAvailable := b_read[5];
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Write" Id="{96b4184b-7b1f-4856-9811-3cf26c7cd803}">
+      <Declaration><![CDATA[METHOD Write : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//B_write[1] = Main supply enable (53Q2)
+//B_write[2] = CEE supply enable (53Q1)
+
+CASE SetACConnectionMode OF
+	0: b_Write[2] := FALSE; b_Write[1] := FALSE;
+	1: b_Write[2] := FALSE; b_Write[1] := TRUE;
+	2: b_Write[2] := TRUE; 	b_Write[1] := FALSE;
+END_CASE
+
+//HVDC disconnect contactors, Only opened in emergency situations when HVDC disconnect fails.
+//Opening these contactors also removes insulation monitor functionality.
+b_Write[3] := b_InternalHVDCConnected;]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_InternalPowerSupply_IO">
+      <LineId Id="9" Count="0" />
+      <LineId Id="300" Count="0" />
+      <LineId Id="296" Count="0" />
+      <LineId Id="17" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_InternalPowerSupply_IO.Read">
+      <LineId Id="11" Count="0" />
+      <LineId Id="7" Count="0" />
+      <LineId Id="14" Count="1" />
+      <LineId Id="13" Count="0" />
+      <LineId Id="20" Count="0" />
+      <LineId Id="19" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_InternalPowerSupply_IO.Write">
+      <LineId Id="10" Count="0" />
+      <LineId Id="12" Count="0" />
+      <LineId Id="11" Count="0" />
+      <LineId Id="6" Count="3" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="18" Count="0" />
+      <LineId Id="17" Count="0" />
+      <LineId Id="19" Count="0" />
+      <LineId Id="16" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

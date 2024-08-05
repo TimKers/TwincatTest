@@ -1,0 +1,221 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="MAIN" Id="{d4f4328e-0902-4818-b24b-aba1ebee7ceb}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM MAIN
+VAR
+
+//	PQMeter : FB_PowerQualityMonitoring;
+	//FireSystem	: FB_FireDetection;
+//	Data AT %I* : BYTE;
+//	IPS	:	FB_InternalPowerSupply;
+//	BMS: FB_BMS;
+	
+	ACPowerStatus 	: 	BOOL;
+	MBFree			:	BOOL;
+	Router	:	FB_Teltonika;
+	
+	MessageArray	:	ARRAY[1..3] OF STRING(75) := ['message1', 'Message2', 'Message3'];
+	
+//	CS	:	FB_CoolingSystem;
+
+	//PN	:	FB_PNController;
+	
+	//HP	:	fb_HEATPUMPSYSTEM;
+	
+	by_PSCoolingPowerMode	:	BYTE := 0;
+	by_setCooling			:	BYTE := 0;
+	b_InverterRunning		:	BOOL := FALSE;
+	r_InverterTemperature	: 	REAL := 20.0;
+	r_InverterPowerLevel	: 	REAL := 0;
+	r_CMSTemperature		: 	REAL := 20.0;
+	b_24V_Available			:  	BOOL := FALSE;
+	b_400v_available		: 	BOOL := FALSE;
+	r_BMSAverageBattTemp	:	REAL := 20.0;
+	r_BMSMaxBattTemp		: 	REAL := 20.0;
+	r_EnclosureHumidity		: 	REAL := 20.0;
+	r_EnclosureTemperature	: 	REAL := 20.0;
+	
+	//PNData AT %I*	:	WORD;
+	
+//	OperatingPoint	:	st_OperatingPoint;
+	
+	EMSTOPActive	:	BOOL;
+	ResetActive		:	BOOL;
+	(*
+	MBTestInput			AT %I* :	ARRAY[0..3] OF WORD;
+	MBTestOutput		AT %Q* :	ARRAY[0..3] OF WORD;
+	
+	SingleMBTestInput		AT %I* :	WORD;
+	SingleMBTestOutput		AT %Q* :	WORD;
+	
+	HeartbeatIn		AT %I*	:	UINT;
+	HeartbeatOut	AT %Q*	:	UINT	:= 0;
+	
+	SlaveHBin		AT %I*	:	UINT;
+	SlaveHBOut		AT %Q*	:	UINT;
+	*)
+	HeartBeatTimer : TON := (Pt := T#1S);
+
+	
+	TestIn	AT %I* : ARRAY[1..7] OF BYTE;
+	TestOut	AT %Q* : ARRAY[1..7] OF BYTE;
+
+	TestInreg	AT %I* : ARRAY[1..10] OF WORD;
+	TestOutreg	AT %Q* : ARRAY[1..10] OF WORD;
+	
+	MBTestOut 		AT %Q* :	WORD;
+	MBTestin		AT %I* :	WORD;
+	startConversion		: 	BOOL;
+	TestString			:	STRING(20) := '0650749712';
+	TestVar				:	BOOL; 
+	
+	GeneralOut			AT %Q* : ARRAY[1..11] OF WORD;
+	GeneralIn			AT %I* : ARRAY[1..2] OF WORD;
+	BMSOut				AT %Q* : ARRAY[1..17] OF WORD;
+	BMSIn				AT %I* : ARRAY[1..2] OF WORD;
+	OutputFieldOut		AT %Q* : ARRAY[1..20] OF WORD;
+	InputFieldOut		AT %Q* : ARRAY[1..20] OF WORD;
+	InputFieldIn		AT %I* : ARRAY[1..9] OF WORD;
+	PowerStackOut		AT %Q* : ARRAY[1..17] OF WORD;
+	PowerstackIn		AT %I* : ARRAY[1..15] OF WORD;
+	PSBOut				AT %Q* : ARRAY[1..16] OF WORD;
+	PSBIn				AT %I* : ARRAY[1..5] OF WORD;	
+	ZPTOut				AT %Q* : ARRAY[1..6] OF WORD;
+END_VAR
+
+VAR
+	LedStripSFC	:	UpdateSFC;
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+//FireSystem();//TestSounder:=False);
+
+//PQMeter();
+//Router();
+//IPS();
+
+(*
+CS(	by_setCooling			:=	by_setCooling,
+	b_InverterRunning 		:= 	b_InverterRunning,
+	by_PSCoolingPowerMode	:=	by_PSCoolingPowerMode,
+	r_InverterTemperature	:=	r_InverterTemperature,
+	r_InverterPowerLevel	:=	r_InverterPowerLevel,
+	r_CMSTemperature		:=	r_CMSTemperature,
+	b_24V_Available			:=	b_24V_Available,
+	b_400v_available		:=	b_400v_available,
+	IPSDemand 				:= ips.Set.CoolingSystemPowerDemand,
+	r_BMSAverageBattTemp	:=	r_BMSAverageBattTemp,
+	r_BMSMaxBattTemp		:=	r_BMSMaxBattTemp,
+	r_EnclosureHumidity		:=	r_EnclosureHumidity,
+	r_EnclosureTemperature	:=	r_EnclosureTemperature
+	);
+
+	IF ResetActive THEN
+		CS.Reset();
+	END_IF
+
+	IF //CS.Get.Events.b_BattLoopValveStuck OR
+		CS.Get.Events.b_CoolingLoopIdlePressureError OR
+		CS.Get.Events.b_InverterCoolingLoopError OR
+		CS.Get.Events.b_CoolingSystemFuseFailure OR
+		//CS.Get.Events.b_FancoilLoopValveStuck OR
+		CS.Get.Events.b_HeatPumpError then
+		//CS.Get.Events.b_InverterLoopValveStuck THEN
+		CS.EMSTOP();
+		END_IF;
+
+//hp(b_EnablePower := ACPowerStatus);
+//hp.WriteSetpoint(OperatingMode := OperatingPoint.OperatingMode, SetPoint := OperatingPoint.Setpoint);
+
+//ReadDataTimer(in := NOT ReadDataTimer.Q);
+//hp(ACPowerStatus:=ACPowerStatus, MBFree:=ReadDataTimer.q);
+*)	
+	
+//BMS();
+(*
+IF startConversion THEN
+	TestVar := router.SetSMSNumber(TestString);
+	startConversion := FALSE;
+END_IF
+
+//Router();
+Router(s_message := MessageArray);
+HeartBeatTimer(in:= NOT HeartBeatTimer.Q);
+
+//MBTestOutput[0] := SingleMBTestInput;
+
+IF HeartBeatTimer.Q THEN
+	extTestOut[1] := extTestOut[1] + 1;
+END_IF
+
+extTestOut[2] := extTestOut[1]-1;
+extTestOut[3] := extTestOut[2]-1;
+extTestOut[4] := extTestOut[3]-1;
+extTestOut[5] := extTestOut[4]-1;
+extTestOut[6] := extTestOut[5]-1;
+
+extTestIn[1];
+extTestIn[2];
+extTestIn[3];
+extTestIn[4];
+*)
+
+//MBTestOut := MBTestin;
+//TestOutreg[1] := TestInreg[1];
+//TestOut := TestIn;
+
+
+LedStripSFC();]]></ST>
+    </Implementation>
+    <LineIds Name="MAIN">
+      <LineId Id="256" Count="0" />
+      <LineId Id="47" Count="4" />
+      <LineId Id="296" Count="0" />
+      <LineId Id="114" Count="0" />
+      <LineId Id="52" Count="0" />
+      <LineId Id="76" Count="2" />
+      <LineId Id="82" Count="0" />
+      <LineId Id="84" Count="0" />
+      <LineId Id="87" Count="7" />
+      <LineId Id="201" Count="3" />
+      <LineId Id="208" Count="6" />
+      <LineId Id="207" Count="0" />
+      <LineId Id="215" Count="1" />
+      <LineId Id="191" Count="0" />
+      <LineId Id="154" Count="0" />
+      <LineId Id="193" Count="0" />
+      <LineId Id="192" Count="0" />
+      <LineId Id="120" Count="0" />
+      <LineId Id="116" Count="0" />
+      <LineId Id="115" Count="0" />
+      <LineId Id="80" Count="0" />
+      <LineId Id="75" Count="0" />
+      <LineId Id="450" Count="0" />
+      <LineId Id="448" Count="0" />
+      <LineId Id="447" Count="0" />
+      <LineId Id="451" Count="1" />
+      <LineId Id="442" Count="0" />
+      <LineId Id="63" Count="0" />
+      <LineId Id="62" Count="0" />
+      <LineId Id="365" Count="0" />
+      <LineId Id="302" Count="0" />
+      <LineId Id="301" Count="0" />
+      <LineId Id="366" Count="0" />
+      <LineId Id="354" Count="0" />
+      <LineId Id="353" Count="0" />
+      <LineId Id="367" Count="1" />
+      <LineId Id="373" Count="5" />
+      <LineId Id="355" Count="0" />
+      <LineId Id="361" Count="0" />
+      <LineId Id="379" Count="1" />
+      <LineId Id="519" Count="0" />
+      <LineId Id="521" Count="0" />
+      <LineId Id="520" Count="0" />
+      <LineId Id="529" Count="0" />
+      <LineId Id="527" Count="0" />
+      <LineId Id="612" Count="0" />
+      <LineId Id="616" Count="0" />
+      <LineId Id="611" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

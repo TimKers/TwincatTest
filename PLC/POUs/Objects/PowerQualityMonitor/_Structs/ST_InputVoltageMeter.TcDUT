@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_InputVoltageMeter" Id="{de58f2c8-ab7e-4ca9-b3b6-48b1f814e6fb}">
+    <Declaration><![CDATA[TYPE ST_InputVoltageMeter :
+STRUCT
+	GenPhaseVoltage : ARRAY[1..3] OF REAL;
+	GenLineVoltage : ARRAY[1..3] OF REAL;
+	GenFrequency : REAL;
+	GenFieldDirection: BOOL;
+	EL3443Status	:	UINT;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

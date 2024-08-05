@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="st_BMS_IO" Id="{16d90630-19c8-437b-9293-2180f30f1532}">
+    <Declaration><![CDATA[TYPE st_BMS_IO :
+STRUCT
+	b_BMS_24V_Enable			:	BOOL;
+	b_BMS_230V_Enable			:	BOOL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

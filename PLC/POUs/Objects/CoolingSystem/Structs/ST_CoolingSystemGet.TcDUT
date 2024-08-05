@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_CoolingSystemGet" Id="{c5f9e8e4-f620-4cbc-bb65-ad5a08f7db42}">
+    <Declaration><![CDATA[TYPE ST_CoolingSystemGet :
+STRUCT
+	CoolingSystemMode		:	eConditioningStates;
+	HeatPumpStatus			: 	eHeatPumpState;
+	CoolantTemperature		:	REAL;
+	CoolantPressure			:	REAL;
+	EnclosureDewpoint		:	REAL;
+		
+	
+	HeatPumpSystemGet 		: REFERENCE TO ST_HeatpumpSystemGet;	
+	Events					: ST_CoolingSystemEvents;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

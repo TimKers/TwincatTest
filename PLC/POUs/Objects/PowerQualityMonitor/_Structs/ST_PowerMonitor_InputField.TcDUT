@@ -1,0 +1,42 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_PowerMonitor_InputField" Id="{816be205-d09a-4774-9c5a-0d5f6504a62a}">
+    <Declaration><![CDATA[TYPE ST_PowerMonitor_InputField :
+STRUCT
+	e_ACrotationStatus	:	eACRotationState;
+	r_Frequency			: 	REAL;
+
+	r_PhaseVoltage		: 	ARRAY[0..3] OF REAL;
+	r_LineVoltage		:	ARRAY[0..3] OF REAL;
+	
+	//Power
+	r_ApparentPower		: 	REAL;
+	r_ReactivePower		: 	REAL;
+	r_ActivePower		: 	REAL;
+	
+	//Power
+	r_ApparentPhasePower	: 	ARRAY[0..3] OF REAL;
+	r_ReactivePhasePower	: 	ARRAY[0..3] OF REAL;
+	r_ActivePhasePower		: 	ARRAY[0..3] OF REAL;
+
+	//Energy Consumed
+	r_EnergyConsumed		:	REAL;
+	
+	//Energy Delivered
+	r_EnergySupplied		:	REAL;
+	
+	//currents
+	r_Current					:	ARRAY[0..4] OF REAL;
+	
+	//THD
+	r_THD						:	ARRAY[0..3] OF REAL;
+		
+	r_PowerFactor				:	ARRAY[0..3] OF REAL;
+	
+	//PowerLock Currents, 2 fields of 4 measurements
+	ar_PowerlockCurrents		: 	ARRAY [1..2] OF ARRAY[1..4] OF REAL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

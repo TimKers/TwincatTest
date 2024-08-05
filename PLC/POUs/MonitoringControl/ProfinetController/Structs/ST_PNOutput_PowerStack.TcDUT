@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_PNOutput_PowerStack" Id="{fe80c703-6cdf-4ae2-af67-d3da73a746ac}">
+    <Declaration><![CDATA[TYPE ST_PNOutput_PowerStack :
+STRUCT
+	w_Status					:	WORD;
+	w_Warnings					:	WORD;
+	w_Faults					:	WORD;
+	w_PowerStackStatus			:	WORD;
+	w_InverterMode				: 	WORD;
+	w_Powermode					: 	WORD;
+	
+	i_ActivePower				: INT;
+	i_ReactivePower				: INT;
+	ui_D7_Voltage				: UINT;
+	ui_D7_frequency				: UINT;
+	i_ACCurrent					: INT;
+	i_ActivePowerSetpoint		: INT;
+	i_ReactivePowerSetpoint		: INT;
+	ui_PFSetpoint				: UINT;
+	ui_LoadPercentage			: UINT;
+	ui_RatedCurrent				: UINT;
+	ui_RatedPower				: UINT;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

@@ -1,0 +1,409 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_FireDetection" Id="{b98e996a-b696-4831-bfb9-9caf729fd2d4}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_FireDetection
+VAR_OUTPUT
+	Get	:	ST_FireDetectionGet;
+END_VAR
+
+VAR_INPUT
+	TestSounder		AT %I* : BOOL;
+	//Set	:	ST_FireDetectionSet;
+END_VAR
+
+VAR
+	SmokeDetIO				:	ST_SmokeDetIO;
+	CODetMeasValues			:	ARRAY[1..2] OF REAL;
+	b_SounderOn				:	BOOL	:= FALSE;
+	b_SilenceSounder	 	:	BOOL;
+	b_ResetSystem		 	:	BOOL;
+END_VAR
+
+VAR
+	//w_ID							: WORD := eObject_ID.FireDetection;
+	IO								: FB_FireDetection_IO;
+	//Diagnostics						: FB_FireDetection_Diagnostics;
+END_VAR
+
+
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[(*
+IO(
+	r_CODet1_value => get.CODetectorValues[1],
+	r_CODet2_value => get.CODetectorValues[2],
+	b_SmokeDetectorSignal_OK => ,
+	b_SmokeDetectorPower_OK
+	
+	);
+	
+ SmokeDetIO:=SmokeDetIO, b_SounderOn:=b_SounderOn);
+
+CheckSmokeDetectors();
+CheckCODetectors();
+SounderBeacon();
+Reset();
+Diagnostics();
+//ResetDetectors(b_ResetAlarms);
+
+//CAll diagnostics
+(*diagnostics(
+	w_ID := w_ID,
+	w_ErrorIndex := w_ErrorIndex, 
+	AddError:=AddError,
+	w_ErrorControlWord := w_ErrorControLWord	
+);
+*)
+//diagnostic toevoegen: warning if reset input remains high after reset timeout
+*)]]></ST>
+    </Implementation>
+    <Method Name="CheckCODetectors" Id="{0d61aa76-96b6-45e8-a408-310074a41bbe}">
+      <Declaration><![CDATA[METHOD PRIVATE CheckCODetectors : BOOL
+
+
+VAR_inst
+	//short term average filter for CO detector 1 (100ms)
+	CO_DET1_Avg: FB_CTRL_MOVING_AVERAGE := (fTaskCycleTime := 1.0, fCtrlCycleTime := 1.0);
+	CO_DET1_AVG_PARAMS	:	ST_CTRL_MOVING_AVERAGE_PARAMS := (tCtrlCycleTime := TIME#1MS, tTaskCycleTime := TIME#1MS, nSamplesToFilter := 10, pWorkArray_ADR := ADR(CO_DET1_Values[1]), nWorkArray_SIZEOF := SIZEOF(CO_DET1_Values));
+
+	
+	//short term average filter for CO detector 2 (100ms)
+	CO_DET2_Avg: FB_CTRL_MOVING_AVERAGE := (fTaskCycleTime := 1.0, fCtrlCycleTime := 1.0);
+	CO_DET2_AVG_PARAMS	:	ST_CTRL_MOVING_AVERAGE_PARAMS := (tCtrlCycleTime := TIME#1MS, tTaskCycleTime := TIME#1MS, nSamplesToFilter := 10, pWorkArray_ADR := ADR(CO_DET2_Values[1]), nWorkArray_SIZEOF := SIZEOF(CO_DET2_Values));
+	
+	
+	Warning1Timer	:	TON := (PT := TIME#1H);
+	Warning2Timer	:	TON := (PT := TIME#15m);
+END_VAR
+
+VAR
+
+END_VAR
+
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+//actual sensor value already filled in in IO code. Only generate status data here.
+//alarm status can not be cleared in this method. only via fb_firedetection.reset method.
+//alarm status is te highest status, if true, no work to do here.
+
+//if both sensors are working
+IF (get.CODetectorValues[1] > -1) AND (get.CODetectors.CODetectorValues[2] > -1) THEN
+	IF get.CODetectors.CODetectorState = eCOAlarmStatus.Error THEN
+		get.CODetectors.CODetectorState := eCOAlarmStatus.Normal;
+	END_IF
+	
+	get.CODetectors.CODetectorValues[1] := CODetMeasValues[1];
+	get.CODetectors.CODetectorValues[2] := CODetMeasValues[2];
+	get.CODetectors.CODetectorValues[0] := (CODetMeasValues[1]/2) + (CODetMeasValues[2]/2);
+	
+ELSE
+	//at least 1 detector is faulty, so go to error state
+	IF get.CODetectors.CODetectorState = eCOAlarmStatus.Normal THEN
+		get.CODetectors.CODetectorState := eCOAlarmStatus.Error;
+	END_IF
+	
+	//if only sensor 1 working
+	IF (get.CODetectors.CODetectorValues[1] > -1) AND (get.CODetectors.CODetectorValues[2] = -1) THEN
+		get.CODetectors.CODetectorValues[1] := CODetMeasValues[1];
+		get.CODetectors.CODetectorValues[2] := -1;
+		get.CODetectors.CODetectorValues[0] := (CODetMeasValues[1]);
+
+	//if only sensor 2 working
+	ELSIF (get.CODetectors.CODetectorValues[2] > -1) AND (get.CODetectors.CODetectorValues[1] = -1) THEN
+
+		get.CODetectors.CODetectorValues[1] := -1;
+		get.CODetectors.CODetectorValues[2] := CODetMeasValues[2];
+		get.CODetectors.CODetectorValues[0] := CODetMeasValues[2];
+	//nothing working
+	ELSE
+		get.CODetectors.CODetectorValues[0] := -1;
+		get.CODetectors.CODetectorValues[1] := -1;
+		get.CODetectors.CODetectorValues[2] := -1;
+	END_IF
+END_IF
+
+//thermal runaway can be triggered by 1 sensor as this can be localized issue which may take time to spread.
+IF (get.CODetectors.CODetectorValues[1] > 120) OR (get.CODetectors.CODetectorValues[2] > 120) THEN
+	get.Events.b_CODetAlarm := TRUE;
+END_IF
+
+//Warning levels are no longer triggered based on an average
+//pgs-37 requires separate triggers per sensor.
+Warning1Timer(IN := (get.CODetectors.CODetectorValues[1] > 10) OR (get.CODetectors.CODetectorValues[2] > 10));
+get.Events.b_CODetWarning2 := Warning2Timer.Q;
+
+Warning2Timer(IN := (get.CODetectors.CODetectorValues[1] > 20) OR (get.CODetectors.CODetectorValues[2] > 20));
+get.Events.b_CODetWarning1 := Warning1Timer.Q;
+
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="CheckSmokeDetectors" Id="{32b84b62-fec9-4ace-a986-823787861248}">
+      <Declaration><![CDATA[METHOD PRIVATE CheckSmokeDetectors
+
+VAR_INST
+	AlarmResetTimer: TP := (PT := TIME#500MS);
+	SmokeAlarmTimer: TON := (PT := TIME#500ms);
+	AlarmResetTrigger: F_TRIG;
+	SmokeAlarmPowerLost: TON := (PT := TIME#50MS);
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+
+//input delay for alarm inputs
+SmokeAlarmTimer(IN := (NOT SmokeDetIO.SmokeDetectorSignal_OK) AND (NOT AlarmResetTrigger.Q));
+SmokeAlarmPowerLost(IN := (NOT SmokeDetIO.SmokeDetectorPower_OK) AND  (NOT AlarmResetTrigger.Q));
+
+IF get.SmokeDetectors.SmokeDetectorState = efireAlarmstatus.Normal THEN
+	IF SmokeAlarmPowerLost.Q THEN	//Alarm power failure means alarm cannot be trusted. So first check power
+		get.SmokeDetectors.SmokeDetectorState := efireAlarmstatus.Error;
+	ELSIF SmokeAlarmTimer.Q THEN	//if alarm signals for >500ms --> raise the alarm.
+		get.SmokeDetectors.SmokeDetectorState := efireAlarmstatus.Alarm;	//alarm is only resettable manually via resetDetectors
+	END_IF
+ELSIF get.SmokeDetectors.SmokeDetectorState = efireAlarmstatus.Error THEN	//if power failed, no alarm checking anymore as this will give false alarms
+	IF NOT SmokeAlarmPowerLost.Q THEN	//Alarm state may return to operational if power comes back
+		get.SmokeDetectors.SmokeDetectorState := efireAlarmstatus.Normal;
+	END_IF
+END_IF	//In alarm state, no power checking is performed anymore. Even if the detectors lose power now, the alarm state has priority.
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Diagnostics" Id="{e3b0d513-3355-450a-b970-462e61e901f3}">
+      <Declaration><![CDATA[METHOD Diagnostics : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+get.Events.SmokeDetAlarm 	:= (get.SmokeDetectors.SmokeDetectorState = eFireAlarmStatus.Alarm);
+get.Events.SmokeDetFault 	:= (get.SmokeDetectors.SmokeDetectorState = eFireAlarmStatus.Error);
+get.Events.CODetAlarm 		:= (get.CODetectors.CODetectorState = eCOAlarmStatus.Alarm);
+get.Events.CODetFault 		:= (get.CODetectors.CODetectorState = eCOAlarmStatus.Error);
+get.Events.CODetWarning		:= (get.CODetectors.CODetectorState = eCOAlarmStatus.WarningLevel1)OR(get.CODetectors.CODetectorState = eCOAlarmStatus.WarningLevel2);
+
+get.Events.AlarmMuted 		:= (get.Events.SmokeDetAlarm OR get.Events.CODetAlarm) And not SounderOn;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="EMstop" Id="{d5edf8eb-e666-4e22-a7b2-96f4ec1cbbc7}">
+      <Declaration><![CDATA[METHOD PUBLIC EMstop : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//do anything?
+//return true when ready]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Reset" Id="{4f4218f7-8d22-4aef-88b1-0859d0e6c514}">
+      <Declaration><![CDATA[METHOD PUBLIC Reset : BOOL
+VAR_INPUT
+//	ResetActive : BOOL := FALSE;
+END_VAR
+
+VAR_INST
+	SmokeDetPowerDownTimer : TP := (PT := TIME#250MS);
+	PowerUpTrigger	:	f_trig;
+	ResetTrigger	:	r_trig;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//reset detectors
+//return true when ready
+
+SounderOn;
+
+Reset := FALSE; 
+SmokeDetPowerDownTimer(IN := ResetSystem);
+SmokeDetIO.SmokeDetectorShutdown := SmokeDetPowerDownTimer.Q;
+
+PowerUpTrigger(CLK := SmokeDetPowerDownTimer.Q);
+IF PowerUpTrigger.Q THEN
+	get.SmokeDetectors.SmokeDetectorState := eFireAlarmStatus.Normal;
+	Reset := TRUE; 
+END_IF
+
+ResetTrigger(CLK := ResetSystem);
+IF ResetTrigger.Q THEN
+	get.CODetectors.CODetectorState := eCOAlarmStatus.Normal;
+END_IF
+
+SilenceSounder := ResetTrigger.Q;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SounderBeacon" Id="{a2411ec0-a4cc-4891-bf7d-27051458cbfd}">
+      <Declaration><![CDATA[METHOD SounderBeacon : BOOL
+
+VAR_INST
+	Old_COAlarmState	:	BOOL := FALSE;
+	Old_SmokeAlarmState	:	BOOL := FALSE;
+	SilenceTrigger : R_Trig;
+	TestTrigger : R_Trig;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+//Only enable sounder at the start of the alarm. Use old_state to determine this.
+//This allows for alarm muting and retriggering. 
+
+IF NOT old_COAlarmState THEN
+	IF get.CODetectors.CODetectorState = eCOAlarmStatus.Alarm THEN
+		SounderOn := TRUE;
+		old_COAlarmState := TRUE;
+	END_IF
+ELSE
+	IF get.CODetectors.CODetectorState = eCOAlarmStatus.Normal THEN
+		old_COAlarmState := FALSE;
+	END_IF			
+END_IF
+
+IF NOT old_SmokeAlarmState THEN
+	IF get.SmokeDetectors.SmokeDetectorState = eFireAlarmStatus.Alarm THEN
+		SounderOn := TRUE;
+		old_SmokeAlarmState := TRUE;
+	END_IF
+ELSE
+	IF get.SmokeDetectors.SmokeDetectorState = eFireAlarmStatus.Normal THEN
+		old_SmokeAlarmState := FALSE;
+	END_IF		
+END_IF
+
+//use rtrig to prevent permanent muting.
+SilenceTrigger(clk:= SilenceSounder);
+IF SilenceTrigger.Q THEN
+	SounderOn := FALSE;
+END_IF
+
+//use rtrig to prevent permanent sounding. resilence with muting.
+TestTrigger(clk:= TestSounder);
+IF TestTrigger.Q THEN
+	SounderOn := TRUE;
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_FireDetection">
+      <LineId Id="1246" Count="0" />
+      <LineId Id="1224" Count="0" />
+      <LineId Id="1375" Count="0" />
+      <LineId Id="1377" Count="0" />
+      <LineId Id="1381" Count="1" />
+      <LineId Id="1380" Count="0" />
+      <LineId Id="1379" Count="0" />
+      <LineId Id="1378" Count="0" />
+      <LineId Id="1376" Count="0" />
+      <LineId Id="1225" Count="2" />
+      <LineId Id="1299" Count="0" />
+      <LineId Id="1294" Count="0" />
+      <LineId Id="1337" Count="0" />
+      <LineId Id="1228" Count="10" />
+      <LineId Id="1188" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_FireDetection.CheckCODetectors">
+      <LineId Id="14" Count="0" />
+      <LineId Id="10" Count="0" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="17" Count="0" />
+      <LineId Id="186" Count="0" />
+      <LineId Id="185" Count="0" />
+      <LineId Id="74" Count="0" />
+      <LineId Id="200" Count="1" />
+      <LineId Id="199" Count="0" />
+      <LineId Id="217" Count="0" />
+      <LineId Id="670" Count="1" />
+      <LineId Id="668" Count="1" />
+      <LineId Id="203" Count="0" />
+      <LineId Id="704" Count="0" />
+      <LineId Id="239" Count="1" />
+      <LineId Id="237" Count="0" />
+      <LineId Id="317" Count="0" />
+      <LineId Id="346" Count="0" />
+      <LineId Id="323" Count="0" />
+      <LineId Id="675" Count="1" />
+      <LineId Id="673" Count="0" />
+      <LineId Id="332" Count="2" />
+      <LineId Id="677" Count="2" />
+      <LineId Id="341" Count="3" />
+      <LineId Id="705" Count="1" />
+      <LineId Id="345" Count="0" />
+      <LineId Id="238" Count="0" />
+      <LineId Id="16" Count="0" />
+      <LineId Id="520" Count="0" />
+      <LineId Id="11" Count="0" />
+      <LineId Id="707" Count="0" />
+      <LineId Id="12" Count="0" />
+      <LineId Id="709" Count="0" />
+      <LineId Id="521" Count="0" />
+      <LineId Id="681" Count="0" />
+      <LineId Id="347" Count="0" />
+      <LineId Id="713" Count="0" />
+      <LineId Id="712" Count="0" />
+      <LineId Id="7" Count="0" />
+      <LineId Id="710" Count="1" />
+      <LineId Id="8" Count="0" />
+      <LineId Id="498" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_FireDetection.CheckSmokeDetectors">
+      <LineId Id="47" Count="1" />
+      <LineId Id="6" Count="2" />
+      <LineId Id="13" Count="11" />
+      <LineId Id="39" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_FireDetection.Diagnostics">
+      <LineId Id="7" Count="0" />
+      <LineId Id="6" Count="0" />
+      <LineId Id="10" Count="0" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="11" Count="0" />
+      <LineId Id="13" Count="0" />
+      <LineId Id="12" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_FireDetection.EMstop">
+      <LineId Id="6" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_FireDetection.Reset">
+      <LineId Id="5" Count="1" />
+      <LineId Id="43" Count="0" />
+      <LineId Id="42" Count="0" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="8" Count="0" />
+      <LineId Id="22" Count="0" />
+      <LineId Id="25" Count="0" />
+      <LineId Id="24" Count="0" />
+      <LineId Id="26" Count="0" />
+      <LineId Id="29" Count="0" />
+      <LineId Id="40" Count="0" />
+      <LineId Id="28" Count="0" />
+      <LineId Id="30" Count="0" />
+      <LineId Id="7" Count="0" />
+      <LineId Id="33" Count="2" />
+      <LineId Id="37" Count="0" />
+      <LineId Id="36" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_FireDetection.SounderBeacon">
+      <LineId Id="16" Count="0" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="24" Count="0" />
+      <LineId Id="6" Count="3" />
+      <LineId Id="14" Count="0" />
+      <LineId Id="10" Count="0" />
+      <LineId Id="45" Count="0" />
+      <LineId Id="47" Count="0" />
+      <LineId Id="49" Count="0" />
+      <LineId Id="46" Count="0" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="18" Count="5" />
+      <LineId Id="51" Count="4" />
+      <LineId Id="31" Count="0" />
+      <LineId Id="30" Count="0" />
+      <LineId Id="26" Count="0" />
+      <LineId Id="25" Count="0" />
+      <LineId Id="27" Count="1" />
+      <LineId Id="33" Count="4" />
+      <LineId Id="32" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

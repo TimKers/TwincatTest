@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_FireDetection_get" Id="{c76f398f-4d18-46ca-990e-8c8bb1cfea36}">
+    <Declaration><![CDATA[TYPE ST_FireDetection_get :
+STRUCT
+	SmokeDetectors : ST_SmokeDetectors;
+	CODetectors	:	ST_CODetectors;
+	
+	Events	:	ST_FireSystem_Events;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

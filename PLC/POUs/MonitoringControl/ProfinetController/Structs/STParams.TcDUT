@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="STParams" Id="{25066fe8-3469-4cd3-8522-a06fed840941}">
+    <Declaration><![CDATA[TYPE STParams :
+STRUCT
+	t_HbIncrementInterval	:	TIME	:= 	T#500MS;
+	t_HbCommLostTimeout		:	TIME	:=	T#1S;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

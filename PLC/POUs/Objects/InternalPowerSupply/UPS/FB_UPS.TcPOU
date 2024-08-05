@@ -1,0 +1,231 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_UPS" Id="{0649dd8d-2931-4480-9942-718e0ae8c687}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_UPS
+VAR_INPUT
+	b_24V_Available	:	BOOL;
+END_VAR
+VAR_OUTPUT
+	Get	: ST_UPSGET;
+END_VAR
+VAR
+	DisableUPS		AT %Q* : BOOL;
+	UPSData			AT %I* : ST_UPSDATA;	
+	InputTimer		: TON := (PT := TIME#100ms);
+END_VAR
+
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[//no need to call this FB from the main sequence
+//This FB is controlled via the internal power supply
+
+Get.r_BatteryVoltage 	:= 	UPSData.ui_BatteryVoltage;
+Get.r_InputVoltage		:=	UPSData.ui_InputVoltage;
+Get.r_OutputVoltage		:=	UPSData.ui_OutputVoltage;
+Get.ui_SOC 				:= GetSOC();
+
+
+//if r_SOC below threshold, battery is critically low. System should shutdown.
+IF Get.ui_SOC  < IPSParams.usi_UPSBattLowErrorSOC THEN
+	get.Events.b_BatteryLowError := TRUE;
+END_IF
+
+//if r_SOC below threshold, charging request was denied. System is draining. Consider shutdown.
+IF Get.ui_SOC  < IPSParams.usi_UPSBattLowwarningSOC THEN
+	get.Events.b_BatteryLowWarning := TRUE;
+END_IF
+
+//if r_SOC below threshold, request charging power from IPS
+IF Get.ui_SOC  < IPSParams.usi_UPSBattLowinfoSOC THEN
+	get.UPSPowerDemand.b_Demand_24V := TRUE;
+	get.Events.b_BatteryLowNotice := TRUE;
+//if r_SOC above threshold remove charging request to prevent prolonged HVDC usage.
+ELSIF Get.ui_SOC  > IPSParams.usi_UPSBattOKSOC THEN
+	get.UPSPowerDemand.b_Demand_24V := FALSE;
+	get.Events.b_BatteryLowNotice := FALSE;
+END_IF
+
+//if system is charging, disable low battery error. Wait for sufficient r_SOC before disabling the low battery warning
+IF UPSData.udi_StatusFunctions.5 THEN 
+	get.Events.b_BatteryLowError := FALSE;
+END_IF
+
+IF get.r_BatteryVoltage < 16 THEN
+	get.Events.b_NoBatteryError := TRUE;
+ELSE 
+	get.Events.b_NoBatteryError := FALSE;
+END_IF
+
+//UPS input voltage should be OK shortly after IPS 24V coming online. Otherwise there is a problem
+InputTimer(in:= b_24V_Available);
+get.Events.b_InputVoltageError := InputTimer.Q AND (UPSData.ui_InputVoltage < 20);]]></ST>
+    </Implementation>
+    <Method Name="GetDiagnostics" Id="{a6feb194-122c-4dd9-b6e6-b0e59af9594d}">
+      <Declaration><![CDATA[METHOD GetDiagnostics 
+VAR_IN_OUT
+	AddError		: ARRAY [*] OF FB_AddErrorST;
+	a_ActiveEvents	: ARRAY [*] OF ST_ErrorStruct;
+	w_Index			: WORD;
+END_VAR
+
+VAR_OUTPUT
+	b_errorActive	: BOOL;
+	b_warningActive	: BOOL;
+END_VAR
+
+VAR
+	by_errCt	: BYTE;
+	by_warnCt	: BYTE;
+	w_ID		: WORD;
+END_VAR
+
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[(*UPS*)
+	(*Low battery error*)		AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_BatteryLowError,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 1 + w_ID,
+			s_Message				:= 'UPS Low battery error',
+			e_sev					:= eSeverity.Warning,	//<-- not really applicable
+			in_b_AutoClear			:= TRUE,
+			);
+		IF AddError[w_Index].b_out THEN by_WarnCt := by_WarnCt + 1; END_IF;
+		w_Index := w_Index +1;
+		
+	(*low battery warning*)		AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_BatteryLowWarning,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 2 + w_ID,
+			s_Message				:= 'UPS Low battery warning',
+			e_sev					:= eSeverity.Info,
+			in_b_AutoClear			:= TRUE,
+			);
+		w_Index := w_Index +1;
+	
+	(*UPS input undervoltage*)		AddError[w_Index](
+			in_b_ErrorTrig			:= Get.Events.b_InputVoltageError,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 3 + w_ID,
+			s_Message				:= 'UPS input undervoltage error',
+			e_sev					:= eSeverity.Warning,
+			in_b_AutoClear			:= TRUE,
+			);
+		IF AddError[w_Index].b_out THEN by_WarnCt := by_WarnCt + 1; END_IF;
+		w_Index := w_Index +1;
+	
+	(*no UPS battery*)		AddError[w_Index](
+			in_b_ErrorTrig		:= Get.Events.b_NoBatteryError,
+			out_ST_Error			:= a_ActiveEvents[w_Index],
+			w_ID					:= 4 + w_ID,
+			s_Message				:= 'UPS no battery error',
+			e_sev					:= eSeverity.Warning,
+			);
+		IF AddError[w_Index].b_out THEN by_WarnCt := by_WarnCt + 1; END_IF;
+		w_Index := w_Index +1;
+		]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="GetSoC" Id="{40d60e2e-6e66-47d7-9dc1-800d5cec11f6}">
+      <Declaration><![CDATA[METHOD GetSoC : USINT
+VAR
+
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+//basic lineaire r_SOC berekening voor nu
+IF UPSData.udi_StatusFunctions.5 THEN
+	//charging
+	//26V is 100%
+	//23V is 0%
+	GetSoC := REAL_TO_USINT((get.r_BatteryVoltage - 23)*33.3);
+ELSE
+	//discharging
+	//25.7V is 100%
+	//22.7V is 0%
+	GetSoC := REAL_TO_USINT((get.r_BatteryVoltage - 22.7)*33.3);
+END_IF
+
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Shutdown" Id="{9f021c31-5925-4a6b-8394-2c7981423f21}">
+      <Declaration><![CDATA[METHOD Shutdown : BOOL
+
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+DisableUPS := True;
+]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_UPS">
+      <LineId Id="107" Count="0" />
+      <LineId Id="109" Count="0" />
+      <LineId Id="108" Count="0" />
+      <LineId Id="18" Count="0" />
+      <LineId Id="31" Count="1" />
+      <LineId Id="34" Count="0" />
+      <LineId Id="33" Count="0" />
+      <LineId Id="97" Count="0" />
+      <LineId Id="48" Count="3" />
+      <LineId Id="124" Count="3" />
+      <LineId Id="123" Count="0" />
+      <LineId Id="96" Count="0" />
+      <LineId Id="95" Count="0" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="45" Count="0" />
+      <LineId Id="98" Count="0" />
+      <LineId Id="43" Count="1" />
+      <LineId Id="101" Count="0" />
+      <LineId Id="42" Count="0" />
+      <LineId Id="99" Count="0" />
+      <LineId Id="53" Count="0" />
+      <LineId Id="52" Count="0" />
+      <LineId Id="56" Count="0" />
+      <LineId Id="55" Count="0" />
+      <LineId Id="61" Count="0" />
+      <LineId Id="60" Count="0" />
+      <LineId Id="62" Count="0" />
+      <LineId Id="102" Count="1" />
+      <LineId Id="63" Count="0" />
+      <LineId Id="104" Count="0" />
+      <LineId Id="65" Count="0" />
+      <LineId Id="64" Count="0" />
+      <LineId Id="80" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_UPS.GetDiagnostics">
+      <LineId Id="23" Count="0" />
+      <LineId Id="25" Count="5" />
+      <LineId Id="66" Count="0" />
+      <LineId Id="31" Count="9" />
+      <LineId Id="65" Count="0" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="43" Count="7" />
+      <LineId Id="67" Count="0" />
+      <LineId Id="51" Count="13" />
+    </LineIds>
+    <LineIds Name="FB_UPS.GetSoC">
+      <LineId Id="16" Count="0" />
+      <LineId Id="11" Count="0" />
+      <LineId Id="8" Count="0" />
+      <LineId Id="20" Count="0" />
+      <LineId Id="22" Count="1" />
+      <LineId Id="13" Count="0" />
+      <LineId Id="12" Count="0" />
+      <LineId Id="17" Count="0" />
+      <LineId Id="19" Count="0" />
+      <LineId Id="18" Count="0" />
+      <LineId Id="14" Count="1" />
+      <LineId Id="6" Count="0" />
+      <LineId Id="10" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_UPS.Shutdown">
+      <LineId Id="5" Count="2" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

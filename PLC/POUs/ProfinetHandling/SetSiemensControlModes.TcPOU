@@ -1,0 +1,233 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="SetSiemensControlModes" Id="{9d616345-4145-42cf-8fd5-93bfa151c796}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM SetSiemensControlModes
+VAR
+	i_BessMode		:INT;
+	i_InvMode		:INT;
+	b_Overule		: BOOL;
+	TON_StorageModePulseTrigger: TON ;
+	
+	b_RobertTest	:BOOL;
+	
+	Testmode		: INT;
+	
+	
+
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[i_BessMode := InProfinetSiemens.i_BessMode;
+i_InvMode  := InProfinetSiemens.i_InvMode;
+IF NOT GVL.b_SiemensOverule THEN
+	GVL.Gl_ShutdownIntitiatedVisu := FALSE;
+	GVL.GL_UserStopVisu := FALSE;
+	Safety.b_EmergencyStopVisu := FALSE;
+END_IF
+
+CASE i_BessMode OF 
+	0:	//REMAIN AT CURRENT MODE
+		GVL.b_ActivateSettings := FALSE;
+		GVL.GL_ActivateSelectedMode := FALSE;
+
+	1:	//SHUTDOWN
+		GVL.Gl_ShutdownIntitiatedVisu := TRUE;
+		
+		IF (GVL.GL_StorageModeActivate OR GVL.GL_TransportModeActivate) THEN
+			GVL.GL_StorageModeButtonPushed := FALSE;
+		END_IF
+		
+	2:	// STORAGE MODE ON
+		
+		GVL.GL_StorageModeButtonPushed := TRUE;		;
+	
+		IF DigitalOutputs.b_StorageModeRelay OR GVL.GL_TransportModeActivate THEN
+			OutProfinetSIEMENS.i_BessModeFB := 1;
+		END_IF
+		
+		
+		
+	3: 	// TRANSPORT MODE
+		//Integrated in current storage mode.
+	
+	4: 	// EXT CONTROL MODE
+		//TO BE DONE
+		
+	5:	// Microgrid Mode
+		GVL.GL_StorageModeButtonPushed := FALSE;
+		IF (NOT DigitalInputs.b_TransferSwitchIOFF OR NOT DigitalInputs.b_TransferSwitchIIOFF) THEN
+			GVL.GL_MicroGridModeButtonPushed := TRUE;
+			GVL.b_ActivateSettings := TRUE;
+			GVL.GL_ActivateSelectedMode := TRUE;
+		END_IF
+		
+	6: // AFE Mode
+		//TO BE DONE
+		
+	7: // ERROR
+	Safety.b_EmergencyStopVisu	:=TRUE;
+	
+	IF safety.b_EmergencyStopSoftwareOK = FALSE THEN
+		OutProfinetSIEMENS.i_BessModeFB := 6;
+	END_IF
+		
+END_CASE
+
+CASE i_InvMode	OF
+	0: //REMAIN AT CURRENT MODE
+	
+	1: // INVERTER RUN DISABLE / OFF
+		IF GVL.Gl_ShutdownIntitiatedVisu := TRUE THEN
+			GVL.GL_UserStopVisu := FALSE;
+		ELSE
+			GVL.GL_UserStopVisu := TRUE;
+		END_IF	
+	
+		IF GVL.Gl_ModeChangePossible := 1 THEN;
+			OutProfinetSIEMENS.i_InvModeFB := 0;
+		END_IF
+		
+	2: // ISOCHRONIOUS MODE
+		GVL.i_StartPowerMode := 3;
+		GVL.i_StartVoltageMode:= 2;
+		
+		//WHEN INVERTER MODULATION IS STOPPED, BUT MCCB STILL IN.
+		IF NOT GVL.b_InverterRunning AND GVL.b_InverterReadyToOperate THEN  
+			GVL.GL_ActivateSelectedMode := TRUE;
+		END_IF
+		
+		
+	3: // DROOP MODE (island)
+		GVL.i_StartPowerMode := 2;
+		GVL.i_StartVoltageMode:= 1;
+		
+		//WHEN INVERTER MODULATION IS STOPPED, BUT MCCB STILL IN.
+		IF NOT GVL.b_InverterRunning AND GVL.b_InverterReadyToOperate THEN  
+			GVL.GL_ActivateSelectedMode := TRUE;
+		END_IF
+		
+	
+END_CASE
+
+//FEEDBACK SIGNAL BESS MODE
+IF safety.b_EmergencyStopSoftwareOK = FALSE THEN
+	OutProfinetSIEMENS.i_BessModeFB := 6;
+ELSIF GVL.by_Status_ModeSequence = 17 OR GVL.by_Status_ModeSequence = 20 THEN //17 Mode off, 20 Client Setting Active
+	OutProfinetSIEMENS.i_BessModeFB := 0;
+ELSIF GVL.GL_StorageModeActivate THEN
+	OutProfinetSIEMENS.i_BessModeFB := 1;
+ELSIF GVL.b_MicroGridModeActive THEN;
+	OutProfinetSIEMENS.i_BessModeFB := 4;
+END_IF
+
+// ERROR SET TO SIEMENS
+IF Diagnostics.b_Error = TRUE THEN
+	OutProfinetSIEMENS.i_BessModeFB := 6;
+	OutProfinetSIEMENS.i_InvModeFB := 0;
+END_IF
+
+
+//FEEDBACK SIGNAL INVERTER MODE
+IF OutProfinetInverter.i_StartPowerMode = 3 AND OutProfinetInverter.i_StartVoltageMode = 2 THEN
+		OutProfinetSIEMENS.i_InvModeFB := 1;
+ELSIF OutProfinetInverter.i_StartPowerMode = 2 AND OutProfinetInverter.i_StartVoltageMode = 1 THEN
+		OutProfinetSIEMENS.i_InvModeFB := 2;
+END_IF
+
+
+
+]]></ST>
+    </Implementation>
+    <LineIds Name="SetSiemensControlModes">
+      <LineId Id="119" Count="0" />
+      <LineId Id="116" Count="0" />
+      <LineId Id="227" Count="0" />
+      <LineId Id="13" Count="1" />
+      <LineId Id="329" Count="0" />
+      <LineId Id="277" Count="0" />
+      <LineId Id="87" Count="1" />
+      <LineId Id="92" Count="2" />
+      <LineId Id="98" Count="0" />
+      <LineId Id="97" Count="0" />
+      <LineId Id="101" Count="0" />
+      <LineId Id="236" Count="1" />
+      <LineId Id="433" Count="0" />
+      <LineId Id="239" Count="0" />
+      <LineId Id="105" Count="0" />
+      <LineId Id="107" Count="0" />
+      <LineId Id="428" Count="0" />
+      <LineId Id="108" Count="0" />
+      <LineId Id="110" Count="0" />
+      <LineId Id="112" Count="1" />
+      <LineId Id="394" Count="1" />
+      <LineId Id="106" Count="0" />
+      <LineId Id="120" Count="1" />
+      <LineId Id="299" Count="0" />
+      <LineId Id="122" Count="0" />
+      <LineId Id="124" Count="0" />
+      <LineId Id="202" Count="0" />
+      <LineId Id="129" Count="0" />
+      <LineId Id="131" Count="0" />
+      <LineId Id="373" Count="1" />
+      <LineId Id="132" Count="1" />
+      <LineId Id="130" Count="0" />
+      <LineId Id="136" Count="0" />
+      <LineId Id="135" Count="0" />
+      <LineId Id="134" Count="0" />
+      <LineId Id="140" Count="0" />
+      <LineId Id="143" Count="0" />
+      <LineId Id="145" Count="4" />
+      <LineId Id="144" Count="0" />
+      <LineId Id="142" Count="0" />
+      <LineId Id="90" Count="0" />
+      <LineId Id="84" Count="0" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="198" Count="0" />
+      <LineId Id="200" Count="0" />
+      <LineId Id="203" Count="0" />
+      <LineId Id="286" Count="0" />
+      <LineId Id="207" Count="0" />
+      <LineId Id="287" Count="2" />
+      <LineId Id="204" Count="2" />
+      <LineId Id="201" Count="0" />
+      <LineId Id="210" Count="0" />
+      <LineId Id="208" Count="0" />
+      <LineId Id="211" Count="0" />
+      <LineId Id="213" Count="0" />
+      <LineId Id="249" Count="0" />
+      <LineId Id="266" Count="2" />
+      <LineId Id="252" Count="0" />
+      <LineId Id="214" Count="0" />
+      <LineId Id="212" Count="0" />
+      <LineId Id="218" Count="0" />
+      <LineId Id="220" Count="1" />
+      <LineId Id="253" Count="0" />
+      <LineId Id="257" Count="0" />
+      <LineId Id="255" Count="1" />
+      <LineId Id="254" Count="0" />
+      <LineId Id="222" Count="0" />
+      <LineId Id="209" Count="0" />
+      <LineId Id="199" Count="0" />
+      <LineId Id="231" Count="0" />
+      <LineId Id="343" Count="0" />
+      <LineId Id="347" Count="1" />
+      <LineId Id="350" Count="1" />
+      <LineId Id="399" Count="1" />
+      <LineId Id="356" Count="0" />
+      <LineId Id="365" Count="0" />
+      <LineId Id="362" Count="0" />
+      <LineId Id="457" Count="0" />
+      <LineId Id="366" Count="3" />
+      <LineId Id="361" Count="0" />
+      <LineId Id="455" Count="1" />
+      <LineId Id="425" Count="0" />
+      <LineId Id="448" Count="1" />
+      <LineId Id="453" Count="1" />
+      <LineId Id="452" Count="0" />
+      <LineId Id="420" Count="0" />
+      <LineId Id="360" Count="0" />
+      <LineId Id="69" Count="0" />
+      <LineId Id="48" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

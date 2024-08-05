@@ -1,0 +1,137 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_ControlManager" Id="{44c6e203-66b7-4368-8ad0-23cc113e3897}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_ControlManager
+
+VAR_OUTPUT PERSISTENT
+	Hardsettings_persistent					: ST_HardSettings; 
+	Softsettings_persistent					: ST_Softsettings;
+END_VAR
+
+VAR_OUTPUT
+	control									: ST_ControlVars;
+	Operation								: ST_OperationVars;
+END_VAR
+
+VAR
+	IoT							: FB_ControlSource_IoT;	
+	PNController				: FB_PNController;
+	{ attribute 'TcHmiSymbol.Show' }
+	b_SettingsChanged			: BOOL;				
+END_VAR
+
+VAR_IN_OUT CONSTANT
+	{ attribute 'TcHmiSymbol.Hide' }
+	monitor						: ST_SystemControl_FromSystem;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[//instantiate fbs 
+hmi(monitor:=monitor, PLCsettingsHard:= Hardsettings_persistent, PLCsettingsSoft :=SoftSettings_persistent);
+PNController(monitor := monitor);
+Iot(monitor:=monitor);
+
+ControlSourceSelector();
+
+
+
+//refresh HMI data --> future work make on change and asynchronous java in hmi
+]]></ST>
+    </Implementation>
+    <Method Name="ControlSourceSelector" Id="{282021cb-018e-48a7-8725-07889a38c5dd}">
+      <Declaration><![CDATA[METHOD PROTECTED ControlSourceSelector
+
+VAR_OUTPUT
+	b_Busy					: BOOL;
+	b_Error					: BOOL;
+END_VAR
+
+VAR
+	
+	softsettingsTemp				: ST_SoftSettings;
+	controlTemp						: ST_ControlVars;
+	
+	rtrig_WritePersistent		: R_TRIG;
+	fb_WritePersistentData		: WritePersistentData;
+END_VAR
+
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//Choosing the control source always requires the HMI
+IF HMI.controlvars.control.b_ActivateSettings THEN
+	Hardsettings_persistent.setup.e_ControlSource := HMI.Controlvars.hardSettings.setup.e_ControlSource;
+END_IF
+
+
+CASE Hardsettings_persistent.setup.e_ControlSource OF
+	eControlSources.Local: // HMI
+		softsettingsTemp 	:= HMI.controlvars.SoftSettings;
+		Operation			:= HMI.controlvars.Operation;
+	eControlSources.ExternalController: // HMI
+		softsettingsTemp 	:= PnController.SoftSettings;
+		Operation			:= PNController.Operation;	
+		controlTemp			:= PNController.control;
+	eControlSources.IoT:	//IOT
+		softsettingsTemp 	:= IoT.SoftSettings; // Only local HMI can adjust recipe and thus persistent values.
+		Operation			:= IoT.operation;
+		controlTemp			:= IoT.control;
+END_CASE
+
+// WRITE PRIORITY DATA
+control.b_start := HMI.controlvars.control.b_start OR controltemp.b_start;
+control.b_Shutdown := HMI.controlvars.control.b_Shutdown OR controltemp.b_Shutdown;
+control.b_ClearHistory := HMI.controlvars.control.b_ClearHistory OR controltemp.b_ClearHistory;
+control.b_Reset := HMI.controlvars.control.b_Reset OR controltemp.b_Reset;
+control.b_ActivateSettings := HMI.controlvars.control.b_ActivateSettings OR controltemp.b_ActivateSettings;
+control.b_Reboot:= HMI.controlvars.control.b_Reboot OR controltemp.b_Reboot;
+control.b_EMstop:= HMI.controlvars.control.b_EMstop OR controltemp.b_EMstop;
+control.b_ResetVDL := HMI.controlvars.control.b_ResetVDL OR Iot.control.b_ResetVDL;
+
+
+//WRITE PERSISTENT DATA
+rtrig_WritePersistent(CLK:=HMI.controlvars.control.b_ActivateSettings);
+IF rtrig_WritePersistent.Q THEN
+	Hardsettings_persistent := HMI.controlvars.HardSettings;
+	Softsettings_persistent	:= softsettingsTemp;
+	fb_WritePersistentData(NETID := '', PORT:= 851, START:=TRUE, TMOUT := T#1S);
+ELSE
+	fb_WritePersistentData(START := FALSE);
+END_IF
+
+b_Busy := fb_WritePersistentData.BUSY;
+b_Error := fb_WritePersistentData.ERR; 
+
+
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_ControlManager">
+      <LineId Id="167" Count="0" />
+      <LineId Id="88" Count="0" />
+      <LineId Id="234" Count="0" />
+      <LineId Id="165" Count="0" />
+      <LineId Id="43" Count="0" />
+      <LineId Id="142" Count="0" />
+      <LineId Id="217" Count="0" />
+      <LineId Id="115" Count="0" />
+      <LineId Id="281" Count="0" />
+      <LineId Id="269" Count="0" />
+      <LineId Id="276" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_ControlManager.ControlSourceSelector">
+      <LineId Id="245" Count="9" />
+      <LineId Id="289" Count="1" />
+      <LineId Id="286" Count="0" />
+      <LineId Id="292" Count="0" />
+      <LineId Id="256" Count="2" />
+      <LineId Id="293" Count="0" />
+      <LineId Id="259" Count="8" />
+      <LineId Id="294" Count="0" />
+      <LineId Id="268" Count="6" />
+      <LineId Id="288" Count="0" />
+      <LineId Id="275" Count="9" />
+      <LineId Id="161" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

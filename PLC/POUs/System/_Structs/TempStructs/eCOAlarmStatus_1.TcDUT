@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="eCOAlarmStatus_1" Id="{2f9a69f3-8c48-4c3b-8e3b-5a784e169706}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+{attribute 'tostring'}
+TYPE eCOAlarmStatus_1 :
+(
+	Error			:= 0,
+	Normal 			:= 1,
+	WarningLevel1 	:= 2,
+	WarningLevel2 	:= 3,
+	Alarm 			:= 4
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

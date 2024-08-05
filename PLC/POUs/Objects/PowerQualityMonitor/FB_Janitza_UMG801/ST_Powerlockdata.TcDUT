@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_Powerlockdata" Id="{b1f9d438-f848-4fa0-ba28-5d9dbf999a94}">
+    <Declaration><![CDATA[TYPE ST_Powerlockdata :
+STRUCT
+	//Power
+	r_ApparentPhasePower	: 	ARRAY[0..3] OF REAL;
+	r_ReactivePhasePower	: 	ARRAY[0..3] OF REAL;
+	r_ActivePhasePower		: 	ARRAY[0..3] OF REAL;	
+
+	//Power
+	r_ApparentPower				: 	REAL := 0;
+	r_ReactivePower				:	REAL := 0;
+	r_ActivePower				:	REAL := 0; 	
+
+	//Energy Consumed
+	r_EnergyConsumed			:	REAL := 0;
+	
+	//Energy Delivered
+	r_EnergySupplied			:	REAL := 0;
+	
+	//THD
+	ar_THD						:	ARRAY[0..3] OF REAL := [0, 0, 0, 0];	
+
+	ar_PowerFactor				:	ARRAY[0..3] OF REAL := [0, 0, 0, 0];
+END_STRUCT
+END_TYPE
+
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="eSmokeDetectAlarmStatus" Id="{4467e01f-624d-4c9e-b062-212ce5044a11}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+{attribute 'strict'}
+{attribute 'tostring'}
+TYPE eSmokeDetectAlarmStatus :
+(
+	Error := 0,
+	Normal := 1,
+	Alarm := 2
+);
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

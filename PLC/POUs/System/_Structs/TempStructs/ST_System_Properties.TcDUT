@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_System_Properties" Id="{349a54ce-4b25-4b81-abb5-4c221260992e}">
+    <Declaration><![CDATA[TYPE ST_System_Properties :
+STRUCT
+	r_RatedActivePower		: REAL;
+	r_RatedApparentPower	: REAL;
+	r_RatedCurrent			: REAL;
+	r_RatedEnergyCapacity	: REAL;
+	r_SelfdischargeRate		: REAL;
+	r_RatedSoCMax			: REAL;
+	r_RatedSocMin			: REAL;
+	s_ManufacturerModel		: STRING := 'e-PU10';
+	s_Options				: STRING;
+	s_SerialNumber			: STRING;
+	s_VersionNumber			: STRING;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

@@ -1,0 +1,142 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_EL3443_0010" Id="{0fc3c86a-39de-44a4-bb0c-4d895221ae25}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_EL3443_0010
+VAR_INPUT
+	b_enable	:	BOOL;
+END_VAR
+
+VAR
+	EL3443FaultCounter			: UINT := 0;
+END_VAR
+VAR_OUTPUT
+	PhaseStatus				AT %I* : ARRAY [1..3] OF ST_El3443_PhaseStatus;
+	TotalStatus				AT %I* : ST_EL3443_TotalStatus;
+	r_PhaseVoltage			AT %I* : ARRAY [1..3] OF REAL;
+	r_LineVoltage			AT %I* : ARRAY [1..3] OF REAL;
+	r_Current				AT %I* : ARRAY [1..4] OF REAL;
+	r_ActivePower			AT %I* : ARRAY [1..3] OF REAL;
+	r_ReactivePower			AT %I* : ARRAY [1..3] OF REAL;
+	r_ApparentPower			AT %I* : ARRAY [1..3] OF REAL;
+	r_PowerFactor			AT %I* : ARRAY [1..3] OF REAL;
+	r_Frequency				AT %I* : REAL;
+	r_ActiveEnergy			AT %I* : LINT;
+	r_ActiveEnergyPositive 	AT %I* : LINT;
+	r_ActiveEnergyNegative	AT %I* : LINT;
+	ui_EL3443BoxState		AT %I* : UINT;
+END_VAR
+
+VAR_IN_OUT
+	Get	: ST_PowerMonitor_get;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+IF b_Enable THEN
+	IF TotalStatus.bit_SystemState AND ui_EL3443BoxState = 16#8 THEN
+		//Get Generator field voltage data from EL3443
+		Get.InputField.r_PhaseVoltage[Phases.L1]:= r_PhaseVoltage[Phases.L1];
+		Get.InputField.r_PhaseVoltage[Phases.L2]:=  r_PhaseVoltage[Phases.L2];
+		Get.InputField.r_PhaseVoltage[Phases.L3]:=  r_PhaseVoltage[Phases.L3];
+		Get.InputField.r_PhaseVoltage[Phases.AVG] := ( r_PhaseVoltage[Phases.L1] + r_PhaseVoltage[Phases.L2] +  r_PhaseVoltage[Phases.L3])/3;
+		
+		Get.InputField.r_LineVoltage[Phases.L1]:=  r_LineVoltage[Phases.L1];
+		Get.InputField.r_LineVoltage[Phases.L2]:=  r_LineVoltage[Phases.L2];
+		Get.InputField.r_LineVoltage[Phases.L3]:=  r_LineVoltage[Phases.L3];
+		Get.InputField.r_LineVoltage[Phases.AVG] := ( r_LineVoltage[Phases.L1] +  r_LineVoltage[Phases.L2] +  r_LineVoltage[Phases.L3])/3;
+		
+		Get.InputField.r_Frequency :=  r_Frequency;
+		
+		Get.InputField.r_Current[Phases.L1]:= r_Current[Phases.L1];
+		Get.InputField.r_Current[Phases.L2]:= r_Current[Phases.L2];
+		Get.InputField.r_Current[Phases.L3]:= r_Current[Phases.L3];
+		Get.InputField.r_Current[Phases.N]:= r_Current[Phases.N];	//<-- calculated N
+		
+		Get.InputField.r_ActivePhasePower[Phases.L1]:= r_ActivePower[Phases.L1];
+		Get.InputField.r_ActivePhasePower[Phases.L2]:= r_ActivePower[Phases.L2];
+		Get.InputField.r_ActivePhasePower[Phases.L3]:= r_ActivePower[Phases.L3];		
+		Get.InputField.r_ActivePhasePower[Phases.AVG]:= (r_ActivePower[Phases.L1] + r_ActivePower[Phases.L2] + r_ActivePower[Phases.L3]);	
+		Get.InputField.r_ActivePower := r_ActivePower[Phases.L1]+ r_ActivePower[Phases.L2] + r_ActivePower[Phases.L3];
+		
+		Get.InputField.r_ApparentPhasePower[Phases.L1]:= r_ApparentPower[Phases.L1];
+		Get.InputField.r_ApparentPhasePower[Phases.L2]:= r_ApparentPower[Phases.L2];
+		Get.InputField.r_ApparentPhasePower[Phases.L3]:= r_ApparentPower[Phases.L3];		
+		Get.InputField.r_ApparentPhasePower[Phases.AVG]:= (r_ApparentPower[Phases.L1] + r_ApparentPower[Phases.L2] + r_ApparentPower[Phases.L3]);	
+		Get.InputField.r_ApparentPower := r_ApparentPower[Phases.L1]+ r_ApparentPower[Phases.L2] + r_ApparentPower[Phases.L3];
+		
+		Get.InputField.r_ReactivePhasePower[Phases.L1]:= r_ReactivePower[Phases.L1];
+		Get.InputField.r_ReactivePhasePower[Phases.L2]:= r_ReactivePower[Phases.L2];
+		Get.InputField.r_ReactivePhasePower[Phases.L3]:= r_ReactivePower[Phases.L3];		
+		Get.InputField.r_ReactivePhasePower[Phases.AVG]:= (r_ReactivePower[Phases.L1] + r_ReactivePower[Phases.L2] + r_ReactivePower[Phases.L3]);	
+		Get.InputField.r_ReactivePower := r_ReactivePower[Phases.L1]+ r_ReactivePower[Phases.L2] + r_ReactivePower[Phases.L3];
+		
+		//Energy Consumed                           
+		Get.InputField.r_EnergyConsumed		 :=		LINT_TO_REAL(r_ActiveEnergyNegative);	
+	                                                
+		//Energy Delivered                          
+		Get.InputField.r_EnergySupplied :=		LINT_TO_REAL(r_ActiveEnergyPositive);		
+	    
+		//Powerfactors                                                                 
+	    Get.InputField.r_PowerFactor[Phases.L1]:= r_PowerFactor[Phases.L1];
+		Get.InputField.r_PowerFactor[Phases.L2]:= r_PowerFactor[Phases.L2];
+		Get.InputField.r_PowerFactor[Phases.L3]:= r_PowerFactor[Phases.L3];		
+		Get.InputField.r_PowerFactor[Phases.AVG]:= (r_PowerFactor[Phases.L1] + r_PowerFactor[Phases.L2] + r_PowerFactor[Phases.L3])/3;	                                            
+
+		//THD not in EL3443                                                       
+		//VoltageUnbalance  not in EL3443   
+		
+		//EL3443 only gives a boolean for fieldRotation with True meaning right.
+		//So false could be none or left. Check voltages before checking rotation.
+		IF (Get.InputField.r_LineVoltage[Phases.L1] > 300) AND (Get.InputField.r_LineVoltage[Phases.L2] > 300) AND (Get.InputField.r_LineVoltage[Phases.L3] > 300) THEN
+			IF  TotalStatus.bit_GridDirection THEN
+				Get.InputField.e_ACrotationStatus := eACRotationState.Right;
+			ELSE
+				Get.InputField.e_ACrotationStatus := eACRotationState.Left;	
+			END_IF
+		ELSE
+			Get.InputField.e_ACrotationStatus := eACRotationState.None;	
+		END_IF
+		get.events.b_EL3443Warning := FALSE;
+		EL3443FaultCounter := 0;
+		
+	ELSE
+		//faultwarning sets directly if the card states an error.
+		//Fault error only sets if the fault remains for a longer period of time.
+		get.events.b_EL3443Warning := TRUE;
+		EL3443FaultCounter := EL3443FaultCounter +1;
+		IF EL3443FaultCounter > 50 THEN
+			get.events.b_EL3443Error := TRUE;
+		END_IF
+	END_IF
+END_IF
+]]></ST>
+    </Implementation>
+    <LineIds Name="FB_EL3443_0010">
+      <LineId Id="103" Count="0" />
+      <LineId Id="105" Count="14" />
+      <LineId Id="156" Count="0" />
+      <LineId Id="158" Count="3" />
+      <LineId Id="195" Count="1" />
+      <LineId Id="193" Count="1" />
+      <LineId Id="197" Count="0" />
+      <LineId Id="214" Count="0" />
+      <LineId Id="199" Count="4" />
+      <LineId Id="215" Count="0" />
+      <LineId Id="207" Count="0" />
+      <LineId Id="204" Count="2" />
+      <LineId Id="198" Count="0" />
+      <LineId Id="216" Count="0" />
+      <LineId Id="174" Count="0" />
+      <LineId Id="177" Count="2" />
+      <LineId Id="182" Count="1" />
+      <LineId Id="211" Count="0" />
+      <LineId Id="208" Count="2" />
+      <LineId Id="192" Count="0" />
+      <LineId Id="168" Count="1" />
+      <LineId Id="212" Count="0" />
+      <LineId Id="157" Count="0" />
+      <LineId Id="120" Count="23" />
+      <LineId Id="77" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

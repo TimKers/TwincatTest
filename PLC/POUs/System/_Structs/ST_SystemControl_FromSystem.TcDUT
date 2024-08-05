@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_SystemControl_FromSystem" Id="{70a94fbd-dad4-4764-821e-d46da3808f02}">
+    <Declaration><![CDATA[{ attribute 'TcHmiSymbol.ShowRecursively' }
+
+TYPE ST_SystemControl_FromSystem :
+STRUCT
+	b_modeSwitchEnable					: BOOL;
+	
+	safety								: ST_Safety_get;
+	system								: ST_SystemControl_System;
+	powerstack							: ST_Powerstack_get;
+	powermonitor						: ST_PowerMonitor_get;
+	ACswitchgear						: ST_ACSwitchgear_Get;
+	neutraltransformer					: ST_NeutralTransformer_Get;
+	battery								: st_MBMU_BatterySummary;
+	protections							: ST_ProtectionSystems_get;
+	peakshavebox						: ST_Peakshavebox_get;
+	enclosure							: ST_Enclosure_get;
+	internalpsu							: ST_InternalPowersupply_Get;
+	DCswitchgear						: ST_DCSwitchgear_Get;
+	PLC									: ST_plcstate_get;
+	Properties							: ST_System_properties;
+	//Cooling							
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>
