@@ -85,6 +85,7 @@ END_VAR
 
 VAR
 	LedStripSFC	:	UpdateSFC;
+	b_var	:	bool;
 END_VAR]]></Declaration>
     <Implementation>
       <ST><![CDATA[
@@ -165,8 +166,24 @@ extTestIn[4];
 //TestOut := TestIn;
 
 
-LedStripSFC();]]></ST>
+LedStripSFC();
+
+
+IF TRUE THEN
+	b_var := FALSE;
+END_IF]]></ST>
     </Implementation>
+    <Method Name="newMethod" Id="{91008b74-9bb0-41f7-b67f-cbf91092504c}">
+      <Declaration><![CDATA[METHOD newMethod : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//This is a new method
+//
+//with [code]]]></ST>
+      </Implementation>
+    </Method>
     <LineIds Name="MAIN">
       <LineId Id="256" Count="0" />
       <LineId Id="47" Count="4" />
@@ -216,6 +233,14 @@ LedStripSFC();]]></ST>
       <LineId Id="612" Count="0" />
       <LineId Id="616" Count="0" />
       <LineId Id="611" Count="0" />
+      <LineId Id="702" Count="1" />
+      <LineId Id="701" Count="0" />
+      <LineId Id="704" Count="1" />
+    </LineIds>
+    <LineIds Name="MAIN.newMethod">
+      <LineId Id="5" Count="0" />
+      <LineId Id="7" Count="0" />
+      <LineId Id="6" Count="0" />
     </LineIds>
   </POU>
 </TcPlcObject>
