@@ -8,7 +8,7 @@
     <WriteProductVersion>true</WriteProductVersion>
     <GenerateTpy>false</GenerateTpy>
     <Name>PLC</Name>
-    <ProgramVersion>3.1.4023.0</ProgramVersion>
+    <ProgramVersion>3.1.4026.9</ProgramVersion>
     <Application>{54727eae-761b-4324-9b11-0821e4376005}</Application>
     <TypeSystem>{67a791ce-4a73-45e7-8e9f-f0fd94d8a4c0}</TypeSystem>
     <Implicit_Task_Info>{6fad0daa-8f11-42cd-a4d7-8ad9c5ab3c11}</Implicit_Task_Info>
@@ -463,6 +463,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\old\old.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\POU.TcPOU">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="POUs\ProfinetHandling\InitSIEMENSInput.TcPOU">
