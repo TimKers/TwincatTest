@@ -12,10 +12,12 @@ END_VAR
     <Implementation>
       <ST><![CDATA[//Nieuwe POU
 
-//Weer een toevoeging]]></ST>
+//Weer een toevoeging
+
+//En nog meer features]]></ST>
     </Implementation>
     <LineIds Name="POU">
-      <LineId Id="1" Count="2" />
+      <LineId Id="1" Count="4" />
     </LineIds>
   </POU>
 </TcPlcObject>
