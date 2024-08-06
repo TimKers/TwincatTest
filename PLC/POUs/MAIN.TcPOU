@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4026.8">
   <POU Name="MAIN" Id="{d4f4328e-0902-4818-b24b-aba1ebee7ceb}" SpecialFunc="None">
     <Declaration><![CDATA[PROGRAM MAIN
 VAR
@@ -87,7 +87,7 @@ VAR
 	LedStripSFC	:	UpdateSFC;
 END_VAR]]></Declaration>
     <Implementation>
-      <ST><![CDATA[
+      <ST><![CDATA[// Ik heb hier iets toegevoegd
 //FireSystem();//TestSounder:=False);
 
 //PQMeter();
